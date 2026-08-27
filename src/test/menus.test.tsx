@@ -47,7 +47,7 @@ function setup(menus: MenuSummary[] = [MENU]) {
   fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope(SITES)))
   fetchMock.on('/api/v1/allergies', jsonResponse(envelope(ALLERGIES)))
   fetchMock.on('/api/v1/admin/menus', jsonResponse(envelope(menus)))
-  fetchMock.on('/api/v1/menus/11', jsonResponse(envelope(DETAIL)))
+  fetchMock.on('/api/v1/admin/menus/11', jsonResponse(envelope(DETAIL)))
   renderWithProviders(<MenusPage />)
   return fetchMock
 }
@@ -167,6 +167,19 @@ describe('메뉴 등록', () => {
 })
 
 describe('메뉴 수정', () => {
+  it('관리자 경로로 상세를 읽는다', async () => {
+    const fetchMock = setup()
+    await screen.findByText('김치찌개 정식')
+    await userEvent.click(screen.getByRole('button', { name: '수정' }))
+    await screen.findByLabelText('메뉴명')
+
+    // 공개 조회에 기대면 그쪽이 좁아질 때 관리 화면이 같이 망가진다.
+    expect(fetchMock.calls.some((call) => call.url.includes('/api/v1/admin/menus/11'))).toBe(true)
+    expect(
+      fetchMock.calls.some((call) => /\/api\/v1\/menus\/11/.test(call.url)),
+    ).toBe(false)
+  })
+
   it('현재 값을 모두 채워 연다', async () => {
     setup()
     await screen.findByText('김치찌개 정식')
