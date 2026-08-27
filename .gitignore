@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+
+# 실제 값은 커밋하지 않는다. 예시는 .env.example 에만 둔다.
+.env
+.env.*
+!.env.example
+
+*.local
+.vite/
