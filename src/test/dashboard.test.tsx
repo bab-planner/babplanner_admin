@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { act, screen } from '@testing-library/react'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import type { AdminDashboard } from '../api/types'
 import {
@@ -22,6 +22,15 @@ function show(dashboard: Partial<AdminDashboard>) {
   const fetchMock = mockFetch()
   fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope([{ id: 1, name: '학생식당' }])))
   fetchMock.on('/api/v1/admin/dashboard', jsonResponse(envelope({ ...EMPTY, ...dashboard })))
+  // 현재 혼잡도는 공개 endpoint를 따로 읽는다. 대시보드가 준 값과 같은
+  // 저장 현재값이므로 여기서도 같은 것을 돌려준다.
+  const current = { ...EMPTY, ...dashboard }.currentCongestion
+  fetchMock.on(
+    '/api/v1/congestion/current',
+    current
+      ? jsonResponse(envelope(current))
+      : jsonResponse(errorEnvelope('CONGESTION_NOT_AVAILABLE', '관측이 없습니다.'), 404),
+  )
   renderWithProviders(<DashboardPage />)
   return fetchMock
 }
@@ -71,6 +80,90 @@ describe('현재 혼잡도', () => {
     expect(await screen.findByText('혼잡도 데이터 없음')).toBeInTheDocument()
     // 관측이 없다는 것과 여유롭다는 것은 다른 말이다.
     expect(screen.queryByText('보통')).not.toBeInTheDocument()
+    expect(screen.queryByText('여유')).not.toBeInTheDocument()
+  })
+})
+
+describe('현재 혼잡도 실시간 갱신', () => {
+  const BASE = {
+    siteId: 1,
+    peopleCount: 3,
+    level: 'COMFORTABLE' as const,
+    displayMessage: null,
+    observedAt: '2026-08-28T08:41:09Z',
+    source: 'CCTV_AI',
+  }
+
+  it('공개 현재 혼잡도 endpoint를 읽는다', async () => {
+    const fetchMock = show({ currentCongestion: BASE })
+
+    await screen.findByText('여유')
+
+    const asked = fetchMock.calls.filter((call) =>
+      call.url.includes('/api/v1/congestion/current'),
+    )
+    expect(asked.length).toBeGreaterThan(0)
+    expect(asked[0]!.url).toContain('siteId=1')
+    // 수집 경로는 브라우저가 부르지 않는다.
+    expect(fetchMock.calls.every((call) => !call.url.includes('/internal/v1'))).toBe(true)
+  })
+
+  it('현재 인원만 주기적으로 다시 읽고 대시보드 전체는 다시 부르지 않는다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const fetchMock = mockFetch()
+      fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope([{ id: 1, name: '학생식당' }])))
+      fetchMock.on(
+        '/api/v1/admin/dashboard',
+        jsonResponse(envelope({ ...EMPTY, currentCongestion: BASE })),
+      )
+      fetchMock.on('/api/v1/congestion/current', (_call, index) =>
+        jsonResponse(
+          envelope(
+            index === 0
+              ? BASE
+              : { ...BASE, peopleCount: 21, level: 'VERY_CROWDED', observedAt: '2026-08-28T08:42:09Z' },
+          ),
+        ),
+      )
+      renderWithProviders(<DashboardPage />)
+
+      expect(await screen.findByText('여유')).toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000)
+      })
+
+      expect(await screen.findByText('매우 혼잡')).toBeInTheDocument()
+      expect(screen.getByText(/21명/)).toBeInTheDocument()
+      // 잔반·예측·발주까지 같은 주기로 다시 부르지 않는다.
+      expect(fetchMock.countOf('/api/v1/admin/dashboard')).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('현재값 조회가 실패해도 대시보드가 준 값으로 버틴다', async () => {
+    const fetchMock = mockFetch()
+    fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope([{ id: 1, name: '학생식당' }])))
+    fetchMock.on(
+      '/api/v1/admin/dashboard',
+      jsonResponse(envelope({ ...EMPTY, currentCongestion: { ...BASE, level: 'NORMAL' } })),
+    )
+    fetchMock.on(
+      '/api/v1/congestion/current',
+      jsonResponse(errorEnvelope('INTERNAL_ERROR', '서버 오류'), 500),
+    )
+    renderWithProviders(<DashboardPage />)
+
+    expect(await screen.findByText('보통')).toBeInTheDocument()
+  })
+
+  it('인원수로 단계를 다시 계산하지 않는다', async () => {
+    // 서버가 인원 3명에 VERY_CROWDED를 줬다. 화면은 서버 판정을 그대로 쓴다.
+    show({ currentCongestion: { ...BASE, peopleCount: 3, level: 'VERY_CROWDED' } })
+
+    expect(await screen.findByText('매우 혼잡')).toBeInTheDocument()
     expect(screen.queryByText('여유')).not.toBeInTheDocument()
   })
 })

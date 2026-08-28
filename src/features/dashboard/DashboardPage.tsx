@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { fetchCurrentCongestion } from '../../api/congestion'
 import { fetchDashboard } from '../../api/dashboard'
-import type { AdminDashboard } from '../../api/types'
+import type { AdminDashboard, Congestion } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBlock } from '../../components/StatusBlock'
 import { useSites } from '../../components/SiteProvider'
@@ -37,8 +38,39 @@ function Unavailable({ children }: { children: React.ReactNode }) {
   return <p className="metric-unavailable">{children}</p>
 }
 
-function CongestionCard({ dashboard }: { dashboard: AdminDashboard }) {
-  const congestion = dashboard.currentCongestion
+/**
+ * 현재 혼잡도만 짧은 주기로 다시 읽는다.
+ *
+ * CCTV 수집기가 서버에 관측을 계속 넣는 동안 이 카드만 따라 움직이면 된다.
+ * 대시보드 전체(잔반·예측·발주)를 같은 주기로 다시 부르면 바뀌지도 않는 값
+ * 때문에 요청이 몇 배로 늘어난다. 그래서 폴링은 이 조회 하나에만 건다.
+ *
+ * 대시보드가 함께 내려준 값을 초깃값으로 쓴다. 첫 폴링이 돌아오기 전까지
+ * 카드가 비어 보이지 않게 하려는 것이고, 두 값의 출처는 서버의 같은 저장
+ * 현재값이라 서로 어긋나지 않는다.
+ */
+const CURRENT_CONGESTION_REFETCH_MS = 5_000
+
+function useCurrentCongestion(
+  siteId: number | undefined,
+  fallback: Congestion | null,
+): Congestion | null {
+  const query = useQuery({
+    queryKey: ['congestion', 'current', siteId],
+    queryFn: () => fetchCurrentCongestion(siteId!),
+    enabled: siteId !== undefined,
+    refetchInterval: CURRENT_CONGESTION_REFETCH_MS,
+    // 폴링이 목적이므로 기본 staleTime(30초)을 이 조회에만 해제한다.
+    staleTime: 0,
+    // 관측이 아직 없으면 서버가 404를 준다. 그것은 오류가 아니라 "없음"이고,
+    // 아래에서 fallback(null)로 그대로 표시한다.
+    retry: false,
+  })
+  return query.data ?? fallback
+}
+
+function CongestionCard({ dashboard, siteId }: { dashboard: AdminDashboard; siteId?: number }) {
+  const congestion = useCurrentCongestion(siteId, dashboard.currentCongestion)
 
   if (!congestion) {
     // 임의로 "보통"을 띄우지 않는다. 관측이 없다는 것과 여유롭다는 것은
@@ -164,7 +196,7 @@ export function DashboardPage() {
         <StatusBlock isLoading={query.isPending} error={query.error} data={query.data}>
           {(dashboard) => (
             <div className="card-grid">
-              <CongestionCard dashboard={dashboard} />
+              <CongestionCard dashboard={dashboard} siteId={siteId} />
               <WasteCard dashboard={dashboard} />
               <PredictionCard dashboard={dashboard} />
               <ProcurementCard dashboard={dashboard} />
