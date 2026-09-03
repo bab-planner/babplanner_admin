@@ -192,14 +192,16 @@ describe('잔반 요약', () => {
     expect(screen.queryByText('0%')).not.toBeInTheDocument()
   })
 
-  it('반복 잔반 메뉴 수를 0으로 만들지 않는다', async () => {
+  it('반복 잔반 메뉴 수를 지어내지 않는다', async () => {
     show({
       wasteSummary: { totalSubmissions: 3, averageWasteRate: 0.2, repeatedWasteMenuCount: null },
     })
+    await screen.findByText('20.0%')
 
-    // 판정 기준이 정해지지 않았다. 0개라고 하면 "그런 메뉴가 없다"가 된다.
-    expect(await screen.findByText(/판정 기준 미확정/)).toBeInTheDocument()
-    expect(screen.queryByText(/반복 잔반 메뉴 0개/)).not.toBeInTheDocument()
+    // Figma 대시보드에 이 지표가 없어 여기서는 보여 주지 않는다. 판정 기준도
+    // 정해지지 않았다. 0개라고 하면 "그런 메뉴가 없다"가 된다.
+    expect(screen.queryByText(/반복 잔반 메뉴/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/0개/)).not.toBeInTheDocument()
   })
 })
 
@@ -207,19 +209,21 @@ describe('예상 식수', () => {
   it('예측이 없으면 0명으로 표시하지 않는다', async () => {
     show({ todayPredictedPeople: null, tomorrowPredictedPeople: null })
 
-    expect(await screen.findByText(/예측 데이터 없음/)).toBeInTheDocument()
+    // 오늘과 내일 두 자리 모두 비어 있다고 말한다.
+    expect(await screen.findAllByText(/예측 데이터 없음/)).toHaveLength(2)
     expect(screen.queryByText('0명')).not.toBeInTheDocument()
   })
 
-  it('식사별 화면으로 가는 길을 준다', async () => {
+  it('실행 화면으로 가는 길을 준다', async () => {
     show({})
 
-    // 대시보드가 어느 끼니를 대표할지 정해지지 않았다. 대신 식사별 화면을
-    // 안내한다.
-    expect(await screen.findByRole('link', { name: '식사별 예상 식수 보기' })).toHaveAttribute(
+    // 예상 식수 화면은 Figma 사이드바에 없어 메뉴에서 뺐다. 여기 링크가
+    // 없으면 주소를 직접 쳐야 들어갈 수 있다.
+    expect(await screen.findByRole('link', { name: '예측 실행' })).toHaveAttribute(
       'href',
       '/demand',
     )
+    expect(screen.getByRole('link', { name: '발주 실행' })).toHaveAttribute('href', '/procurement')
   })
 
   it('서버가 값을 주면 그대로 보여 준다', async () => {
@@ -252,7 +256,9 @@ describe('발주 추천 미리보기', () => {
       ],
     })
 
-    expect(await screen.findByText('돼지고기 12.5 kg')).toBeInTheDocument()
+    // Figma는 막대 밑에 이름과 값을 나눠 적는다. 값은 서버가 준 그대로다.
+    expect(await screen.findByText('돼지고기')).toBeInTheDocument()
+    expect(screen.getByText('12.5 kg')).toBeInTheDocument()
   })
 })
 

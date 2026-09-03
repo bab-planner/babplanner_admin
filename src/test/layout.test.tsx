@@ -134,26 +134,48 @@ describe('급식소 선택', () => {
 })
 
 describe('사이드바', () => {
-  it('구현된 화면만 메뉴에 둔다', async () => {
+  it('Figma 사이드바 항목만 둔다', async () => {
     const fetchMock = mockFetch()
     bootstrap(fetchMock)
 
     renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
 
     const nav = await screen.findByRole('navigation', { name: '관리 메뉴' })
-    for (const label of [
-      '대시보드',
-      '메뉴 관리',
-      '혼잡도 분석',
-      '잔반 분석',
-      '예상 식수',
-      '발주량 추천',
-      '공지 관리',
-      '만족도 조사',
-      '문의/건의',
-    ]) {
+    for (const label of ['대시보드', '메뉴 관리', '공지사항 관리', '문의/건의 관리']) {
       expect(within(nav).getByText(label)).toBeInTheDocument()
     }
+  })
+
+  it('백엔드에 관리자 API가 없는 메뉴는 두지 않는다', async () => {
+    const fetchMock = mockFetch()
+    bootstrap(fetchMock)
+
+    renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
+
+    // Figma 사이드바에는 있지만 서버에 해당 관리자 API가 없다. 메뉴에 두면
+    // 관리자는 그것이 준비 중이라고 생각한다.
+    const nav = await screen.findByRole('navigation', { name: '관리 메뉴' })
+    for (const absent of ['회원 관리', '리워드 관리']) {
+      expect(within(nav).queryByText(absent)).not.toBeInTheDocument()
+    }
+  })
+
+  it('분석 화면은 메뉴에 두지 않지만 주소로는 열린다', async () => {
+    const fetchMock = mockFetch()
+    bootstrap(fetchMock)
+    fetchMock.on('/api/v1/admin/waste/summary', jsonResponse(envelope(null)))
+    fetchMock.on('/api/v1/admin/waste/by-menu', jsonResponse(envelope([])))
+
+    // Figma는 이 내용을 대시보드 안에 둔다. 라우트를 지우지는 않는다.
+    renderWithProviders(<AppRoutes />, {
+      route: '/analytics/waste',
+      withSites: false,
+      withAuth: true,
+    })
+
+    const nav = await screen.findByRole('navigation', { name: '관리 메뉴' })
+    expect(within(nav).queryByText('잔반 분석')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '잔반 분석' })).toBeInTheDocument()
   })
 
   it('예약과 픽업 메뉴는 없다', async () => {
@@ -169,19 +191,40 @@ describe('사이드바', () => {
     }
   })
 
-  it('사이드바를 접을 수 있다', async () => {
+  it('접기 토글을 두지 않고 로그아웃을 사이드바에 둔다', async () => {
+    const fetchMock = mockFetch()
+    bootstrap(fetchMock)
+
+    renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
+    await screen.findByRole('navigation', { name: '관리 메뉴' })
+
+    // Figma 관리자 웹에 접힌 사이드바 상태가 없다.
+    expect(screen.queryByRole('button', { name: /메뉴 (접기|펼치기)/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument()
+  })
+})
+
+describe('헤더', () => {
+  it('소속과 로그인한 사람의 이름을 오른쪽에 둔다', async () => {
     const fetchMock = mockFetch()
     bootstrap(fetchMock)
 
     renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
 
-    const toggle = await screen.findByRole('button', { name: '메뉴 접기' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await userEvent.click(toggle)
-    expect(await screen.findByRole('button', { name: '메뉴 펼치기' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    )
+    // 소속은 서버가 주지 않는다. 데모 단계 상수다.
+    expect(await screen.findByText('호서대학교 영양사')).toBeInTheDocument()
+    // 이름은 로그인 응답에서 온다.
+    expect(screen.getByText('관리자')).toBeInTheDocument()
+  })
+
+  it('급식소 선택기를 헤더에 유지한다', async () => {
+    const fetchMock = mockFetch()
+    bootstrap(fetchMock)
+
+    // Figma 헤더에는 없지만 여러 조회가 siteId를 필수로 받는다.
+    renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
+
+    expect(await screen.findByLabelText('급식소')).toBeInTheDocument()
   })
 })
 

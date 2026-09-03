@@ -1,51 +1,41 @@
-import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  ClipboardList,
-  LayoutDashboard,
-  LogOut,
-  Megaphone,
-  Menu as MenuIcon,
-  MessageSquare,
-  ShoppingCart,
-  Trash2,
-  UsersRound,
-  Utensils,
-} from 'lucide-react'
+import { ChartColumnBig, Megaphone, MessageSquareMore, Utensils } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { SiteSelect } from '../components/SiteSelect'
 
 /**
- * 사이드바 항목.
+ * 사이드바 항목. Figma 관리자 웹(147:4524) 사이드바를 따른다.
  *
- * 예약과 픽업은 없다. 초안 화면설계서에 남아 있던 것이고 서버에 그런 API가
- * 없다. 없는 기능을 메뉴에 두면 관리자는 그것이 준비 중이라고 생각한다.
+ * Figma에 있는 "회원 관리"와 "리워드 관리"는 두지 않았다. 백엔드에 해당
+ * 관리자 API가 없다. 없는 기능을 메뉴에 두면 관리자는 그것이 준비 중이라고
+ * 생각한다. 예약과 픽업은 Figma에도 서버에도 없다.
+ *
+ * 혼잡도·잔반·예상 식수·발주·만족도는 Figma처럼 대시보드 안 분석 섹션으로
+ * 들어간다. 라우트와 조회 코드는 그대로 두어 주소로는 열 수 있다.
  */
 const NAV_ITEMS = [
-  { to: '/', label: '대시보드', icon: LayoutDashboard, end: true },
+  { to: '/', label: '대시보드', icon: ChartColumnBig, end: true },
   { to: '/menus', label: '메뉴 관리', icon: Utensils },
-  { to: '/analytics/congestion', label: '혼잡도 분석', icon: UsersRound },
-  { to: '/analytics/waste', label: '잔반 분석', icon: Trash2 },
-  { to: '/demand', label: '예상 식수', icon: ClipboardList },
-  { to: '/procurement', label: '발주량 추천', icon: ShoppingCart },
-  { to: '/notices', label: '공지 관리', icon: Megaphone },
-  { to: '/surveys', label: '만족도 조사', icon: MessageSquare },
-  { to: '/inquiries', label: '문의/건의', icon: MessageSquare },
+  { to: '/notices', label: '공지사항 관리', icon: Megaphone },
+  { to: '/inquiries', label: '문의/건의 관리', icon: MessageSquareMore },
 ] as const
+
+/**
+ * 헤더에 붙는 소속.
+ *
+ * 서버가 주는 값이 아니다. 로그인 응답에는 이름·전화·학번·권한만 있고 소속이
+ * 없다. 데모 단계에서 Figma 헤더 구성을 맞추기 위한 상수이며, 실제 소속을
+ * 다루게 되면 서버에서 받아야 한다.
+ */
+const AFFILIATION = '호서대학교 영양사'
 
 export function AdminLayout() {
   const { user, logout } = useAuth()
-  const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={`admin-shell${collapsed ? ' is-collapsed' : ''}`}>
+    <div className="admin-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="sidebar-logo" aria-hidden="true">
-            밥
-          </span>
-          <span className="sidebar-title">밥플래너 관리자</span>
-        </div>
+        <div className="sidebar-brand">호서 : 밥플래너</div>
 
         <nav className="sidebar-nav" aria-label="관리 메뉴">
           <ul>
@@ -56,7 +46,7 @@ export function AdminLayout() {
                   end={'end' in rest ? rest.end : false}
                   className={({ isActive }) => (isActive ? 'nav-link is-active' : 'nav-link')}
                 >
-                  <Icon size={18} aria-hidden="true" />
+                  <Icon size={24} strokeWidth={1.6} aria-hidden="true" />
                   <span>{label}</span>
                 </NavLink>
               </li>
@@ -65,26 +55,18 @@ export function AdminLayout() {
         </nav>
 
         <button type="button" className="sidebar-logout" onClick={() => void logout()}>
-          <LogOut size={18} aria-hidden="true" />
-          <span>로그아웃</span>
+          로그아웃
         </button>
       </aside>
 
       <div className="admin-main">
         <header className="topbar">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed((value) => !value)}
-          >
-            <MenuIcon size={20} aria-hidden="true" />
-          </button>
-
           <SiteSelect />
 
-          <span className="topbar-user">{user ? `${user.name} 님` : ''}</span>
+          <div className="topbar-user">
+            <span className="topbar-affiliation">{AFFILIATION}</span>
+            {user ? <span className="topbar-name">{user.name}</span> : null}
+          </div>
         </header>
 
         <main className="admin-content">

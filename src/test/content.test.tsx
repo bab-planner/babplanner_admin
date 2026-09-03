@@ -47,8 +47,20 @@ describe('공지 관리', () => {
     expect(await screen.findByText('휴무 안내')).toBeInTheDocument()
     // 관리 목록에는 비공개 공지도 있다. 어느 것이 사용자에게 보이는지
     // 목록에서 바로 읽혀야 한다. '공개'는 표 머리글에도 있으므로 각 행을 본다.
-    expect(screen.getByText('휴무 안내').closest('tr')).toHaveTextContent('공개')
-    expect(screen.getByText('작성 중인 공지').closest('tr')).toHaveTextContent('비공개')
+    expect(screen.getByText('휴무 안내').closest('tr')).toHaveTextContent('노출')
+    expect(screen.getByText('작성 중인 공지').closest('tr')).toHaveTextContent('숨김')
+  })
+
+  it('예약 발행과 임시 저장을 두지 않는다', async () => {
+    notices()
+    await screen.findByText('휴무 안내')
+    await userEvent.click(screen.getByRole('button', { name: '공지사항 등록' }))
+    await screen.findByLabelText('공지사항 제목')
+
+    // 서버에 예약 발행 상태도 임시 저장 API도 없다. 화면에만 만들면 시각을
+    // 골라 두고 그때 나가는 줄 알게 된다.
+    expect(screen.queryByLabelText(/게시일시/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '임시 저장' })).not.toBeInTheDocument()
   })
 
   it('네 필드를 그대로 보낸다', async () => {
@@ -57,12 +69,12 @@ describe('공지 관리', () => {
       call.method === 'POST' ? jsonResponse(envelope(NOTICES[0]), 201) : jsonResponse(envelope(NOTICES)),
     )
     await screen.findByText('휴무 안내')
-    await userEvent.click(screen.getByRole('button', { name: '공지 등록' }))
+    await userEvent.click(screen.getByRole('button', { name: '공지사항 등록' }))
 
-    await userEvent.type(await screen.findByLabelText('제목'), '새 공지')
-    await userEvent.type(screen.getByLabelText('내용'), '본문')
-    await userEvent.click(screen.getByRole('checkbox', { name: '중요 공지' }))
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+    await userEvent.type(await screen.findByLabelText('공지사항 제목'), '새 공지')
+    await userEvent.type(screen.getByLabelText('공지사항 내용'), '본문')
+    await userEvent.selectOptions(screen.getByLabelText('중요 공지 여부'), 'important')
+    await userEvent.click(screen.getByRole('button', { name: '등록' }))
 
     await waitFor(() => {
       const post = fetchMock.calls.find((call) => call.method === 'POST')
@@ -85,9 +97,9 @@ describe('공지 관리', () => {
     const row = screen.getByText('작성 중인 공지').closest('tr')!
     await userEvent.click(within(row).getByRole('button', { name: '수정' }))
 
-    expect(await screen.findByRole('checkbox', { name: '공개' })).not.toBeChecked()
-    await userEvent.click(screen.getByRole('checkbox', { name: '공개' }))
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+    expect(await screen.findByLabelText('노출 여부')).toHaveValue('hidden')
+    await userEvent.selectOptions(screen.getByLabelText('노출 여부'), 'shown')
+    await userEvent.click(screen.getByRole('button', { name: '수정' }))
 
     await waitFor(() => {
       const put = fetchMock.calls.find((call) => call.method === 'PUT')
@@ -269,7 +281,7 @@ describe('문의 관리', () => {
     const fetchMock = inquiries()
     await screen.findByText('메뉴 문의')
 
-    await userEvent.selectOptions(screen.getByLabelText('상태'), 'ANSWERED')
+    await userEvent.selectOptions(screen.getByLabelText('처리 상태'), 'ANSWERED')
 
     await waitFor(() =>
       expect(fetchMock.calls.some((call) => call.url.includes('status=ANSWERED'))).toBe(true),
@@ -281,7 +293,7 @@ describe('문의 관리', () => {
     await screen.findByText('메뉴 문의')
 
     const row = screen.getByText('시설 건의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
 
     expect(await screen.findByText('의자가 흔들립니다.')).toBeInTheDocument()
     expect(screen.getByLabelText('답변')).toHaveValue('확인했습니다.')
@@ -293,9 +305,9 @@ describe('문의 관리', () => {
     await screen.findByText('메뉴 문의')
 
     const row = screen.getByText('메뉴 문의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
     await userEvent.type(await screen.findByLabelText('답변'), '내일은 김치찌개입니다.')
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+    await userEvent.click(screen.getByRole('button', { name: '답변 저장' }))
 
     await waitFor(() => {
       const patch = fetchMock.calls.find((call) => call.method === 'PATCH')
@@ -311,11 +323,11 @@ describe('문의 관리', () => {
     await screen.findByText('시설 건의')
 
     const row = screen.getByText('시설 건의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
     // 목록 필터에도 '상태' 라벨이 있다. 상세 패널 안을 본다.
     const panel = (await screen.findByLabelText('답변')).closest('section')!
-    await userEvent.selectOptions(within(panel).getByLabelText('상태'), 'CLOSED')
-    await userEvent.click(within(panel).getByRole('button', { name: '저장' }))
+    await userEvent.selectOptions(within(panel).getByLabelText('처리 상태'), 'CLOSED')
+    await userEvent.click(within(panel).getByRole('button', { name: '답변 저장' }))
 
     await waitFor(() => {
       const patch = fetchMock.calls.find((call) => call.method === 'PATCH')
@@ -324,13 +336,29 @@ describe('문의 관리', () => {
     })
   })
 
+  it('Figma에 없어도 답변 기능을 지운다는 뜻은 아니다', async () => {
+    inquiries()
+    await screen.findByText('메뉴 문의')
+    const row = screen.getByText('메뉴 문의').closest('tr')!
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
+
+    // Figma 조회 화면에는 답변 입력이 없다. 서버에는 PATCH가 있고 이미 쓰는
+    // 기능이라 화면에서 빼지 않았다.
+    expect(await screen.findByLabelText('답변')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '답변 저장' })).toBeInTheDocument()
+    expect(screen.getByLabelText('처리 상태')).toBeInTheDocument()
+    // 기본 정보는 Figma 그대로다.
+    expect(screen.getByText('문의/건의 유형')).toBeInTheDocument()
+    expect(screen.getByText('접수일시')).toBeInTheDocument()
+  })
+
   it('답변 삭제는 null을 명시한다', async () => {
     const fetchMock = inquiries()
     fetchMock.on('/api/v1/admin/inquiries/10', jsonResponse(envelope(INQUIRIES[1])))
     await screen.findByText('시설 건의')
 
     const row = screen.getByText('시설 건의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
     await userEvent.click(await screen.findByRole('button', { name: '답변 삭제' }))
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }))
@@ -347,8 +375,8 @@ describe('문의 관리', () => {
     await screen.findByText('메뉴 문의')
 
     const row = screen.getByText('메뉴 문의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
-    await userEvent.click(await screen.findByRole('button', { name: '저장' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
+    await userEvent.click(await screen.findByRole('button', { name: '답변 저장' }))
 
     // 서버는 빈 PATCH를 422로 거절한다. 굳이 보내지 않는다.
     expect(await screen.findByRole('alert')).toHaveTextContent('변경한 내용이 없습니다.')
@@ -364,9 +392,9 @@ describe('문의 관리', () => {
     await screen.findByText('메뉴 문의')
 
     const row = screen.getByText('메뉴 문의').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: '상세' }))
+    await userEvent.click(within(row).getByRole('button', { name: '조회' }))
     await userEvent.type(await screen.findByLabelText('답변'), '답변')
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+    await userEvent.click(screen.getByRole('button', { name: '답변 저장' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('요청 값을 다시 확인해 주세요.')
   })

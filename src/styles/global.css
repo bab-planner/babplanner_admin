@@ -27,8 +27,20 @@
   --text-disabled: #9e9e9e;
 
   --radius: 10px;
-  --sidebar-width: 232px;
-  --sidebar-collapsed: 68px;
+
+  /* Figma 관리자 웹(147:4524)에서 실측한 값. */
+  --sidebar-width: 290px;
+  --topbar-height: 60px;
+  --nav-inactive: #c9c9c9;
+  /* Figma의 어두운 버튼과 알림 알약. 텍스트 색과 값이 같지만 쓰임이 다르다. */
+  --surface-inverse: #1a1a1a;
+  --radius-card: 16px;
+  --radius-kpi: 12px;
+  /* KPI 카드의 보조 문구. 본문 회색보다 한 단계 더 흐리다. */
+  --text-faint: #cecece;
+  --kpi-title: #8c8c8c;
+  /* 예상 식수 패널 바탕. */
+  --info-surface: #e7f1fe;
 }
 
 * {
@@ -62,27 +74,23 @@ a {
 
 /* ---------- 레이아웃 ---------- */
 
+/*
+ * Figma 관리자 웹(147:4524) 기준. 캔버스 1920x1080에서 사이드바 290,
+ * 헤더 60, 콘텐츠 패딩 24였다. 아래 수치는 그 노드 치수를 그대로 옮긴 것이다.
+ *
+ * 사이드바 접기는 두지 않는다. Figma에 그 상태가 없다.
+ */
+
 .admin-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   min-height: 100vh;
 }
 
-.admin-shell.is-collapsed {
-  grid-template-columns: var(--sidebar-collapsed) 1fr;
-}
-
-.admin-shell.is-collapsed .sidebar-title,
-.admin-shell.is-collapsed .nav-link span,
-.admin-shell.is-collapsed .sidebar-logout span {
-  display: none;
-}
-
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px 12px;
+  padding-top: 30px;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
@@ -90,24 +98,19 @@ a {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 8px 16px;
-}
-
-.sidebar-logo {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--primary);
-  color: #fff;
+  height: 86px;
+  padding-left: 36px;
+  color: var(--primary);
+  font-size: 30px;
   font-weight: 700;
-  flex: none;
+  letter-spacing: -0.01em;
 }
 
-.sidebar-title {
-  font-weight: 600;
+/* 로고 아래 구분선. Figma는 로고와 메뉴 사이를 선 하나로 끊는다. */
+.sidebar-nav {
+  margin-top: 31px;
+  padding-top: 31px;
+  border-top: 1px solid var(--divider);
 }
 
 .sidebar-nav ul {
@@ -116,45 +119,59 @@ a {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 20px;
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 8px;
-  color: var(--text-secondary);
+  gap: 12px;
+  height: 36px;
+  margin-left: 24px;
+  color: var(--nav-inactive);
+  font-size: 14px;
   text-decoration: none;
 }
 
 .nav-link:hover {
-  background: var(--divider);
+  color: var(--text-secondary);
 }
 
 .nav-link.is-active {
-  background: var(--primary-light);
   color: var(--primary);
   font-weight: 600;
 }
 
+/*
+ * 활성 표시. Figma는 항목 배경을 칠하지 않고 사이드바 오른쪽 끝에 4px 막대를
+ * 세운다.
+ */
+.nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 2px 0 0 2px;
+  background: var(--primary);
+}
+
 .sidebar-logout {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
+  margin: auto 30px 30px;
+  height: 50px;
   border: 0;
   border-radius: 8px;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
+  background: var(--primary);
+  color: #fff;
   font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .sidebar-logout:hover {
-  background: var(--divider);
+  background: var(--primary-dark);
 }
 
 .admin-main {
@@ -167,14 +184,32 @@ a {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 24px;
+  height: var(--topbar-height);
+  padding: 0 30px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
+/*
+ * Figma 헤더는 오른쪽 끝의 소속과 이름만 쓴다. 급식소 선택기는 Figma에 없지만
+ * 대시보드·혼잡도·예상 식수·발주 조회가 siteId를 필수로 받는다. 빼면 화면이
+ * 조회를 못 한다. 그래서 비어 있는 왼쪽에 둔다.
+ */
 .topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-left: auto;
+  font-size: 14px;
+}
+
+.topbar-affiliation {
   color: var(--text-secondary);
+}
+
+.topbar-name {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .admin-content {
@@ -268,6 +303,686 @@ a {
 :focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
+}
+
+/* ---------- 대시보드 ---------- */
+
+/*
+ * Figma 관리자 웹 대시보드(147:4525).
+ *
+ * 콘텐츠 폭 1582 안에서 KPI 행(카드 250x122, 간격 16)과 분석 블록(간격 32)이
+ * 쌓인다. 아래 수치는 그 노드 치수 그대로다.
+ *
+ * Figma의 KPI는 여섯 개지만 세 개만 둔다. 앱 이용자 수, 리워드 지급 수,
+ * 만족도 조사 참여자는 서버에 그 값을 주는 API가 없다. 자리를 비워 두거나
+ * "데이터 없음"으로 채우지 않고 아예 두지 않는다. 빈 카드가 있으면 관리자는
+ * 그것이 곧 채워질 값이라고 생각한다.
+ */
+
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 122px;
+  padding: 16px;
+  border-radius: var(--radius-kpi);
+  background: var(--surface);
+}
+
+.kpi-title {
+  margin: 0;
+  height: 24px;
+  color: var(--kpi-title);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.kpi-value {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 40px;
+}
+
+.kpi-note {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* 값이 없는 자리. 숫자처럼 보이지 않게 크기를 줄인다. */
+.kpi-value.is-empty {
+  color: var(--text-disabled);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.panel-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.panel-section {
+  margin-top: 32px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/*
+ * 차트 아래 값 라벨. Figma는 막대 밑에 항목 이름과 값을 함께 적는다.
+ * 왼쪽 여백은 차트 Y축 폭(56)과 맞춰 막대와 줄을 세운다.
+ */
+.chart-labels {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 8px 0 56px;
+}
+
+.chart-labels li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.chart-label-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.chart-label-value {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/*
+ * 눈에 보이지 않지만 화면 낭독기에는 읽히는 텍스트.
+ * display:none 이나 visibility:hidden 은 낭독기에서도 사라진다.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 예상 식수. Figma는 오늘/내일을 옅은 파란 패널 두 장으로 나눈다. */
+.info-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.info-panel {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 130px;
+  padding: 24px;
+  border-radius: var(--radius-kpi);
+  background: var(--info-surface);
+}
+
+.info-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.info-caption {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.info-value {
+  margin: 0;
+  color: var(--blue);
+  font-size: 28px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.info-value.is-empty {
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 1280px) {
+  .dash-row,
+  .info-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 콘텐츠 카드와 목록 표 ---------- */
+
+/*
+ * Figma 관리자 웹 메뉴 관리(147:5375).
+ *
+ * 콘텐츠 카드 1582x869 안에 제목행 42, 32 간격, 표, 16 간격, 페이지네이션이
+ * 들어간다. 표는 헤더 포함 모든 행이 64px이고 셀 좌우 여백은 16이다.
+ * 아래 수치는 그 노드 치수 그대로다.
+ */
+
+.content-card {
+  padding: 24px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.content-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 42px;
+  margin-bottom: 32px;
+}
+
+.content-card-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.content-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/*
+ * 제목행에 들어가는 조회 조건. 라벨과 입력을 한 줄에 둔다.
+ * .field 가 이 블록보다 아래에 있어 같은 명시도면 그쪽이 이긴다.
+ * 클래스를 겹쳐 명시도를 한 단계 올린다.
+ */
+.field.field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.field.field-inline .field-label {
+  white-space: nowrap;
+}
+
+.field.field-inline input,
+.field.field-inline select {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Figma의 어두운 주요 버튼. 목록 화면의 등록 버튼이 이 모양이다. */
+.button-dark {
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-inverse);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button-dark:hover:not(:disabled) {
+  background: #000;
+}
+
+/* Figma 표에는 바깥 테두리가 없다. .table-scroll 은 다른 화면이 쓰므로 둔다. */
+.list-scroll {
+  overflow-x: auto;
+}
+
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.list-table th,
+.list-table td {
+  height: 64px;
+  padding: 0 16px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.list-table thead th {
+  background: var(--background);
+  font-weight: 400;
+}
+
+.list-table tbody td {
+  border-bottom: 1px solid var(--divider);
+}
+
+/* 상태 글자. 값은 제공일과 오늘을 비교해 만든다. */
+.list-status-past {
+  color: var(--primary);
+}
+
+.list-status-today {
+  color: var(--blue);
+}
+
+.list-status-upcoming {
+  color: var(--text-disabled);
+}
+
+.list-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Figma 행 안의 작은 버튼. 44x29, 좌우 여백 10. */
+.row-button {
+  height: 29px;
+  padding: 0 10px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.row-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.row-button-outline {
+  background: var(--surface);
+  color: var(--primary);
+}
+
+/* 위험하지 않은 행 동작(숨기기 등). 빨강을 쓰지 않는다. */
+.row-button-quiet {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.row-button-quiet:hover:not(:disabled) {
+  border-color: var(--text-disabled);
+  background: var(--divider);
+  color: var(--text-primary);
+}
+
+.row-button-outline:hover:not(:disabled) {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+/*
+ * 페이지네이션. 서버가 페이지를 나눠 주지 않으므로 받은 목록을 화면에서
+ * 자른다. 열 개씩 끊는 것은 Figma가 한 화면에 열 줄을 두기 때문이다.
+ */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  min-height: 27px;
+}
+
+.pagination button {
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  color: var(--text-secondary);
+}
+
+.pagination button:disabled {
+  color: #ebebeb;
+  cursor: not-allowed;
+}
+
+.pagination button[aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* ---------- 등록·수정 폼 ---------- */
+
+/*
+ * Figma 관리자 웹 메뉴 등록/수정(147:6471 / 147:7297).
+ *
+ * 페이지 제목 42, 32 간격, 카드들이 24 간격으로 쌓이고, 32 아래에 버튼 줄이
+ * 온다. 카드 안은 섹션 제목 30, 32 간격, 필드 88(라벨 24 + 8 + 입력 56).
+ * 필드 줄 사이는 32다. 아래 수치는 그 노드 치수 그대로다.
+ */
+
+.form-page-title {
+  margin: 0 0 32px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 42px;
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 왼쪽 입력 카드와 오른쪽 사진 카드. Figma는 1175 / 383 으로 나눈다. */
+/* Figma는 두 카드를 같은 높이(445)로 둔다. 늘어나게 놔둔다. */
+.form-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 383px;
+  gap: 24px;
+}
+
+.form-section-title {
+  margin: 0 0 32px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 30px;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.form-cols {
+  display: grid;
+  gap: 32px;
+}
+
+/* 폼 안의 입력은 로그인 카드와 같은 치수를 쓴다. */
+.figma-form .field {
+  gap: 8px;
+  margin: 0;
+}
+
+.figma-form .field-label {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 24px;
+}
+
+.figma-form input,
+.figma-form select {
+  height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+}
+
+.figma-form textarea {
+  min-height: 59px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  resize: vertical;
+}
+
+/* 구성 항목의 추가 버튼. 세로 배치 안에서 폭이 늘어나지 않게 한다. */
+.figma-form fieldset .button-quiet {
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.figma-form .item-row .button-quiet {
+  align-self: auto;
+}
+
+.figma-form input::placeholder,
+.figma-form textarea::placeholder {
+  color: var(--text-disabled);
+}
+
+/* 라벨 오른쪽에 붙는 글자 수. 상한이 없으므로 현재 길이만 적는다. */
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.field-count {
+  color: var(--text-disabled);
+  font-size: 12px;
+}
+
+/*
+ * 읽기만 하는 여러 줄. 문의 내용처럼 서버가 준 글을 그대로 보여 준다.
+ * 입력처럼 보이지 않게 테두리를 옅게 두고 줄바꿈을 살린다.
+ */
+.readonly-block {
+  min-height: 330px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--background);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.field-readonly-value {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* 사진 카드. Figma는 335x335 정사각형 자리를 둔다. */
+.image-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  aspect-ratio: 1 / 1;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text-disabled);
+  font-size: 14px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.image-drop img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* 알레르기 19종. Figma는 4열에 53px 항목을 8px 간격으로 둔다. */
+.allergy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 32px;
+}
+
+.allergy-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 53px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.allergy-item input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--primary);
+}
+
+.allergy-item.is-on {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* 하단 버튼 줄. Figma는 오른쪽 끝에 36px 버튼을 12px 간격으로 둔다. */
+.form-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.form-actions-row .button-dark,
+.form-actions-row .button-quiet,
+.form-actions-row .button-outline-danger {
+  min-width: 52px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button-quiet {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.button-quiet:hover:not(:disabled) {
+  background: var(--divider);
+}
+
+.button-outline-danger {
+  border: 1px solid var(--primary);
+  background: var(--surface);
+  color: var(--primary);
+  font: inherit;
+}
+
+.button-outline-danger:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.button-dark:disabled {
+  background: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+@media (max-width: 1280px) {
+  .form-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .allergy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------- 상태 ---------- */
@@ -554,33 +1269,136 @@ a {
 
 /* ---------- 로그인 ---------- */
 
+/*
+ * Figma 관리자 웹 로그인(147:5335).
+ *
+ * 카드 554x350을 화면 정중앙에 두고 로고를 그 위 26px에 올린다. 카드 안쪽
+ * 여백 40, 입력 높이 56, 버튼 높이 50. 전부 Figma 노드 치수 그대로다.
+ */
+
 .login-page {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: 24px;
+  background: var(--background);
+}
+
+/*
+ * Figma에서 카드는 화면 정중앙(365~715, 1080의 한가운데)이고 로고는 그 위에
+ * 걸쳐 있다. 로고를 일반 흐름에 두면 그만큼 카드가 아래로 밀린다. 그래서
+ * 카드만 중앙에 두고 로고는 카드 위에 띄운다.
+ */
+.login-inner {
+  position: relative;
+  width: min(554px, 100%);
+}
+
+.login-logo {
+  position: absolute;
+  bottom: calc(100% + 26px);
+  left: 50%;
+  transform: translateX(-50%);
+  height: 86px;
+  line-height: 86px;
+  white-space: nowrap;
+  color: var(--primary);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .login-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 32px;
-  width: min(380px, 100%);
-}
-
-.login-title {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.login-subtitle {
-  color: var(--text-secondary);
-  margin: 4px 0 20px;
-}
-
-.login-card .button {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  padding: 40px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.login-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 로그인 폼만 Figma 치수를 쓴다. 다른 화면의 .field는 그대로 둔다. */
+.login-card .field {
+  gap: 8px;
+  margin: 0;
+}
+
+.login-card .field-label {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 24px;
+}
+
+.login-card .field input {
+  height: 56px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.login-card .field input::placeholder {
+  color: var(--text-disabled);
+}
+
+.login-submit {
+  margin-top: 32px;
+  height: 50px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.login-submit:disabled {
+  background: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/*
+ * 실패 안내. Figma는 카드 안이 아니라 화면 위쪽 가운데에 어두운 알약으로
+ * 띄운다(147:5373, 화면 상단에서 40px).
+ */
+@media (max-height: 640px) {
+  .login-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .login-logo {
+    position: static;
+    transform: none;
+    height: auto;
+    line-height: 1.2;
+    margin-bottom: 24px;
+  }
+}
+
+.login-alert {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 48px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface-inverse);
+  color: #fff;
+  font-size: 12px;
 }
 
 /* ---------- 상세 ---------- */
@@ -626,10 +1444,13 @@ a {
 }
 
 .site-select select {
-  padding: 6px 10px;
+  height: 36px;
+  padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
+  background: var(--surface);
   font: inherit;
+  font-size: 14px;
 }
 
 .site-select-label {
@@ -646,15 +1467,33 @@ a {
 
 /* ---------- 좁은 화면 ---------- */
 
+/*
+ * Figma는 1920 폭 한 가지만 그린다. 좁은 화면 상태는 디자인에 없다.
+ * 다만 290px 사이드바를 그대로 두면 태블릿에서 본문이 눌린다. 새 디자인을
+ * 지어내지 않고 폭과 로고 크기만 줄인다. 항목 라벨은 그대로 둔다. 아이콘만
+ * 남기면 어느 메뉴인지 읽어야 알 수 있다.
+ */
 @media (max-width: 1024px) {
   .admin-shell {
-    grid-template-columns: var(--sidebar-collapsed) 1fr;
+    grid-template-columns: 220px 1fr;
   }
 
-  .sidebar-title,
-  .nav-link span,
-  .sidebar-logout span {
-    display: none;
+  .sidebar-brand {
+    height: 64px;
+    padding-left: 20px;
+    font-size: 22px;
+  }
+
+  .nav-link {
+    margin-left: 16px;
+  }
+
+  .sidebar-logout {
+    margin: auto 20px 20px;
+  }
+
+  .topbar {
+    padding: 0 16px;
   }
 
   .admin-content {
