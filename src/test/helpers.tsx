@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import type { ReactNode } from 'react'
 import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -126,7 +127,8 @@ export function renderWithProviders(
     route = '/',
     withSites = true,
     withAuth = false,
-  }: { route?: string; withSites?: boolean; withAuth?: boolean } = {},
+    strict = false,
+  }: { route?: string; withSites?: boolean; withAuth?: boolean; strict?: boolean } = {},
 ) {
   const queryClient = createTestQueryClient()
   const inner = withSites ? <SiteProvider>{ui}</SiteProvider> : ui
@@ -137,7 +139,9 @@ export function renderWithProviders(
       </MemoryRouter>
     </QueryClientProvider>
   )
-  return { queryClient, ...render(tree) }
+  // 개발 모드는 StrictMode로 돈다. effect가 mount → cleanup → mount 로 두 번
+  // 도는 상황을 재현해야 하는 테스트만 이걸 켠다.
+  return { queryClient, ...render(strict ? <StrictMode>{tree}</StrictMode> : tree) }
 }
 
 /** 세션이 살아 있는 상태를 만든다. */

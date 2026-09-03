@@ -198,6 +198,32 @@ describe('세션 복원', () => {
     expect(getAccessToken()).toBe('restored-access')
   })
 
+  it('StrictMode에서도 복원이 끝난다', async () => {
+    // 개발 서버는 StrictMode로 돈다. effect가 두 번 돌 때 첫 요청의 결과를
+    // 버리면 화면이 "세션을 확인하는 중"에서 멈춘다.
+    const fetchMock = mockFetch()
+    stubSites(fetchMock)
+    seedSession()
+    fetchMock.on(
+      '/api/v1/auth/refresh',
+      jsonResponse(
+        envelope({ accessToken: 'restored-access', refreshToken: ROTATED_REFRESH_TOKEN }),
+      ),
+    )
+
+    renderWithProviders(<AppRoutes />, {
+      route: '/',
+      withSites: false,
+      withAuth: true,
+      strict: true,
+    })
+
+    expect(await screen.findByRole('heading', { name: '대시보드', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByText('세션을 확인하는 중…')).not.toBeInTheDocument()
+    // 토큰이 회전하므로 갱신은 한 번만 나가야 한다.
+    expect(fetchMock.countOf('/api/v1/auth/refresh')).toBe(1)
+  })
+
   it('갱신이 준 새 refresh token으로 갈아 끼운다', async () => {
     const fetchMock = mockFetch()
     stubSites(fetchMock)

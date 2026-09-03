@@ -87,9 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    let cancelled = false
+    // 취소 플래그를 두지 않는다.
+    //
+    // restored ref가 이미 요청을 한 번으로 묶는다. 여기에 cleanup 취소를
+    // 더하면 StrictMode에서 상태가 영영 restoring에 머문다. 개발 모드는
+    // effect를 mount → cleanup → mount 로 두 번 돌리는데, 두 번째 실행은
+    // ref에 막혀 아무것도 하지 않고, 첫 번째가 띄운 요청의 결과는 cleanup이
+    // 세운 플래그 때문에 버려진다. 그러면 새로고침한 화면이 "세션을 확인하는
+    // 중"에서 멈춘다.
     refreshSession().then((ok) => {
-      if (cancelled) return
       if (!ok) {
         forget()
         return
@@ -97,9 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(stored)
       setStatus('authenticated')
     })
-    return () => {
-      cancelled = true
-    }
   }, [forget])
 
   const login = useCallback(
