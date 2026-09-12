@@ -33,7 +33,7 @@ function demand(history: DemandPrediction[] = [FIXTURE_PREDICTION]) {
   return fetchMock
 }
 
-describe('예상 식수', () => {
+describe('발주 기준 인원', () => {
   it('실행 이력을 보여 준다', async () => {
     demand([REAL_PREDICTION])
 
@@ -61,7 +61,7 @@ describe('예상 식수', () => {
     )
     await screen.findByText('100명')
 
-    await userEvent.click(screen.getByRole('button', { name: '예상 식수 실행' }))
+    await userEvent.click(screen.getByRole('button', { name: '발주 기준 인원 실행' }))
 
     await waitFor(() => {
       const post = fetchMock.calls.find((call) => call.method === 'POST')
@@ -97,7 +97,7 @@ describe('예상 식수', () => {
     )
     await screen.findByText('100명')
 
-    await userEvent.click(screen.getByRole('button', { name: '예상 식수 실행' }))
+    await userEvent.click(screen.getByRole('button', { name: '발주 기준 인원 실행' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '예측 서비스를 현재 사용할 수 없습니다.',
@@ -115,7 +115,7 @@ describe('예상 식수', () => {
     })
     await screen.findByText('100명')
 
-    const button = screen.getByRole('button', { name: '예상 식수 실행' })
+    const button = screen.getByRole('button', { name: '발주 기준 인원 실행' })
     await userEvent.click(button)
 
     // 두 번 눌리면 같은 실행이 이력에 두 줄 남는다.
@@ -216,7 +216,7 @@ describe('발주량 추천', () => {
     })
   })
 
-  it('예상 식수가 없으면 무엇을 먼저 해야 하는지 알린다', async () => {
+  it('발주 기준 인원이 없으면 무엇을 먼저 해야 하는지 알린다', async () => {
     const fetchMock = procurement()
     fetchMock.on('/api/v1/admin/procurement-recommendations', (call) =>
       call.method === 'POST'
@@ -229,9 +229,9 @@ describe('발주량 추천', () => {
     await userEvent.click(screen.getByRole('button', { name: '발주 추천 실행' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('같은 식당·날짜·식사 구분의 예상 식수를 먼저 실행해야 합니다.')
+    expect(alert).toHaveTextContent('같은 식당·날짜·식사 구분의 발주 기준 인원을 먼저 실행해야 합니다.')
     // 어디로 가야 하는지도 알려 준다.
-    expect(screen.getByRole('link', { name: '예상 식수 실행 화면으로 이동' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '발주 기준 인원 실행 화면으로 이동' })).toHaveAttribute(
       'href',
       expect.stringContaining('/demand?date='),
     )

@@ -91,7 +91,7 @@ export function ProcurementPage() {
       setNeedsDemand(requiresDemand)
       setRunError(
         requiresDemand
-          ? '같은 식당·날짜·식사 구분의 예상 식수를 먼저 실행해야 합니다.'
+          ? '같은 식당·날짜·식사 구분의 발주 기준 인원을 먼저 실행해야 합니다.'
           : error instanceof ApiError && error.status === 503
             ? '추천 서비스를 현재 사용할 수 없습니다.'
             : messageOf(error),
@@ -252,7 +252,7 @@ export function ProcurementPage() {
             <>
               {' '}
               <Link to={`/demand?date=${date}&mealType=${mealType}`}>
-                예상 식수 실행 화면으로 이동
+                발주 기준 인원 실행 화면으로 이동
               </Link>
             </>
           ) : null}

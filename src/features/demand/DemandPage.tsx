@@ -11,12 +11,23 @@ import { useSites } from '../../components/SiteProvider'
 import { MEAL_TYPES, MEAL_TYPE_LABEL } from '../../utils/labels'
 import { formatCount, formatDateTime, isFixtureModel, todayInputValue } from '../../utils/format'
 
+/**
+ * 발주 기준 인원.
+ *
+ * 발주 추천이 참고하는 끼니별 인원 예측을 실행하고, 실행할 때마다 이력으로 남긴다.
+ * 발주 추천은 같은 식당·날짜·끼니의 이 값이 있어야 실행된다(서버 409).
+ *
+ * 대시보드의 "중식 예상 인원"(식수 예측 PoC)과는 다른 기능이다. 저 카드는 급식
+ * 조건을 넣어 예상 인원을 보기만 하고 저장하지 않는다. 이 화면은 발주용으로 저장한다.
+ * 같은 이름을 쓰면 관리자가 두 숫자를 같은 것으로 읽으므로 이름을 나눴다. 이 화면은
+ * 사이드바에 없고 발주 추천 화면에서만 들어온다.
+ */
 export function DemandPage() {
   const { selectedSite } = useSites()
   const queryClient = useQueryClient()
   const [params] = useSearchParams()
 
-  // 발주 화면에서 "예상 식수 실행하러 가기"로 넘어오면 조건이 채워져 있다.
+  // 발주 화면에서 "발주 기준 인원 실행 화면으로 이동"으로 넘어오면 조건이 채워져 있다.
   const [date, setDate] = useState(params.get('date') ?? todayInputValue())
   const [mealType, setMealType] = useState<MealType>(
     (params.get('mealType') as MealType | null) ?? 'LUNCH',
@@ -50,8 +61,8 @@ export function DemandPage() {
   return (
     <>
       <PageHeader
-        title="예상 식수"
-        description="같은 조건으로 여러 번 실행할 수 있고, 실행할 때마다 이력이 남습니다."
+        title="발주 기준 인원"
+        description="발주 추천이 참고하는 끼니별 인원 예측입니다. 실행할 때마다 이력이 남습니다. 대시보드의 식수 예측(시범)과는 별개입니다."
       />
 
       <div className="filters">
@@ -77,7 +88,7 @@ export function DemandPage() {
           disabled={siteId === undefined || run.isPending}
           onClick={() => run.mutate()}
         >
-          {run.isPending ? '실행 중…' : '예상 식수 실행'}
+          {run.isPending ? '실행 중…' : '발주 기준 인원 실행'}
         </button>
       </div>
 

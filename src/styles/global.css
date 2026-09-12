@@ -39,7 +39,7 @@
   /* KPI 카드의 보조 문구. 본문 회색보다 한 단계 더 흐리다. */
   --text-faint: #cecece;
   --kpi-title: #8c8c8c;
-  /* 예상 식수 패널 바탕. */
+  /* 식수 예측 카드의 예상 인원 영역 바탕. */
   --info-surface: #e7f1fe;
 }
 
@@ -313,7 +313,10 @@ a {
  * 콘텐츠 폭 1582 안에서 KPI 행(카드 250x122, 간격 16)과 분석 블록(간격 32)이
  * 쌓인다. 아래 수치는 그 노드 치수 그대로다.
  *
- * Figma의 KPI는 여섯 개지만 세 개만 둔다. 앱 이용자 수, 리워드 지급 수,
+ * 맨 위에는 두 AI 기능(식수 예측, 현재 혼잡도)을 따로 둔다(.dash-top). 그 아래 KPI
+ * 행에는 잔반률과 메뉴 등록 상태만 남는다.
+ *
+ * Figma의 KPI는 여섯 개지만 전부 두지 않는다. 앱 이용자 수, 리워드 지급 수,
  * 만족도 조사 참여자는 서버에 그 값을 주는 API가 없다. 자리를 비워 두거나
  * "데이터 없음"으로 채우지 않고 아예 두지 않는다. 빈 카드가 있으면 관리자는
  * 그것이 곧 채워질 값이라고 생각한다.
@@ -325,9 +328,10 @@ a {
   gap: 32px;
 }
 
+/* 혼잡도 카드가 맨 위 AI 영역으로 올라가 KPI는 잔반률과 메뉴 등록 상태 두 개다. */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
@@ -347,6 +351,12 @@ a {
   color: var(--kpi-title);
   font-size: 14px;
   font-weight: 400;
+}
+
+.kpi-caption {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .kpi-value {
@@ -406,9 +416,6 @@ a {
   font-size: 13px;
 }
 
-.panel-section {
-  margin-top: 32px;
-}
 
 .panel-actions {
   display: flex;
@@ -465,53 +472,266 @@ a {
   border: 0;
 }
 
-/* 예상 식수. Figma는 오늘/내일을 옅은 파란 패널 두 장으로 나눈다. */
-.info-pair {
+/* ---------- 맨 위 AI 영역 ---------- */
+
+/*
+ * 왼쪽: 중식 예상 인원(식수 예측). 오른쪽: 현재 식당 혼잡도(CCTV).
+ * 목적이 다른 두 결과라 카드를 나눈다.
+ */
+.dash-top {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
+  grid-template-columns: minmax(0, 2.4fr) minmax(240px, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.info-panel {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+/* ---------- 식수 예측 (합성데이터 PoC) ---------- */
+
+/*
+ * 정보 위계: 예상 인원 > 최근 평균 대비 > 전일·전주·7일 평균 > 조건 > PoC 표시.
+ * 예상 인원은 --blue로 가장 크게. 증감은 좋고 나쁨이 아니므로 색으로 판정하지 않는다.
+ */
+.forecast-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 16px;
-  min-height: 130px;
-  padding: 24px;
+  align-items: stretch;
+}
+
+.forecast-headline {
+  padding: 20px 24px;
   border-radius: var(--radius-kpi);
   background: var(--info-surface);
 }
 
-.info-label {
+.forecast-caption {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
-.info-caption {
+.forecast-value {
   margin: 4px 0 0;
+  color: var(--blue);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.forecast-change {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.forecast-change strong {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.forecast-compare {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.forecast-reference {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.forecast-reference div {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.forecast-reference dt {
   color: var(--text-secondary);
   font-size: 12px;
 }
 
-.info-value {
-  margin: 0;
-  color: var(--blue);
-  font-size: 28px;
-  font-weight: 700;
+.forecast-reference dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.info-value.is-empty {
+.forecast-history {
+  margin: 10px 0 0;
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 12px;
+}
+
+/* 참고 사항. 오류가 아니므로 붉은색을 쓰지 않는다. */
+.forecast-warnings {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.forecast-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.forecast-placeholder .status {
+  margin: 0;
+  width: 100%;
+}
+
+.forecast-skeleton {
+  width: 100%;
+  height: 120px;
+  border-radius: var(--radius-kpi);
+  background: linear-gradient(90deg, var(--divider), var(--border), var(--divider));
+}
+
+.forecast-conditions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.forecast-conditions-label {
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 600;
 }
 
+.forecast-conditions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.forecast-conditions li {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--divider);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.forecast-conditions-invalid {
+  flex: 1 1 auto;
+  color: var(--orange);
+  font-size: 12px;
+}
+
+.forecast-toggle {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.forecast-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.forecast-fieldset {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 16px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.forecast-fieldset legend {
+  padding: 0 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.forecast-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.field-error {
+  color: var(--orange);
+  font-size: 12px;
+}
+
+.forecast-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.forecast-hint {
+  margin: 0 auto 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.forecast-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 16px;
+}
+
+.forecast-badge-synthetic {
+  background: var(--divider);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.forecast-poc-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 @media (max-width: 1280px) {
-  .dash-row,
-  .info-pair {
+  .dash-top,
+  .forecast-main,
+  .forecast-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .forecast-reference {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1280px) {
+  .dash-row {
     grid-template-columns: 1fr;
   }
 

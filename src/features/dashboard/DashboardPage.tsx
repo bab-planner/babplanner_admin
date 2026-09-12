@@ -16,13 +16,13 @@ import {
 import { fetchCongestionTimeseries, fetchWasteByMenu } from '../../api/analytics'
 import { fetchCurrentCongestion } from '../../api/congestion'
 import { fetchDashboard } from '../../api/dashboard'
-import { fetchDemandPredictions } from '../../api/demand'
 import { fetchMenus } from '../../api/menus'
 import { fetchSurveyResult, fetchSurveys } from '../../api/surveys'
 import type { AdminDashboard, Congestion, Survey, SurveyResult } from '../../api/types'
 import { StatusBlock } from '../../components/StatusBlock'
 import { useSites } from '../../components/SiteProvider'
-import { CONGESTION_LEVEL_LABEL, MEAL_TYPE_LABEL, MEAL_TYPES } from '../../utils/labels'
+import { DemandForecastPanel } from '../demandForecast/DemandForecastPanel'
+import { CONGESTION_LEVEL_LABEL } from '../../utils/labels'
 import {
   NO_VALUE,
   daysAgoInputValue,
@@ -32,7 +32,6 @@ import {
   formatRate,
   formatTime,
   hoursAgoLocalInput,
-  isFixtureModel,
   nowLocalInput,
   todayInputValue,
 } from '../../utils/format'
@@ -40,8 +39,16 @@ import {
 /**
  * 대시보드.
  *
- * 화면 구성은 Figma 관리자 웹 대시보드(147:4525)를 따른다. 상단 KPI 행,
- * 그 아래 분석 블록이 32px 간격으로 쌓인다.
+ * 맨 위는 두 AI 기능이다. 왼쪽이 **중식 예상 인원**(식수 예측, 운영 계획과 발주
+ * 참고), 오른쪽이 **현재 식당 혼잡도**(CCTV, 지금 이용 상황). 목적이 다른 두 결과라
+ * 카드를 나누고 하나로 합치지 않는다.
+ *
+ * 그 아래는 Figma 관리자 웹 대시보드(147:4525)를 따른다. KPI 행, 분석 블록이 32px
+ * 간격으로 쌓인다.
+ *
+ * 식수 예측은 맨 위 카드 하나뿐이다. 예전에 있던 "예상 식수" 패널(저장된 끼니별 실행
+ * 이력과 대시보드 API의 오늘/내일 값)은 뺐다. 끼니별 실행은 발주 추천의 선행 조건이라
+ * "발주 기준 인원" 화면(/demand)에 남아 있다.
  *
  * 서버가 준 것만 보여 준다. 값이 없는 자리는 비어 있다고 말하고, 0이나 예시
  * 숫자로 메우지 않는다. 관리자는 여기 뜬 숫자로 식수를 잡고 발주를 넣기
@@ -53,7 +60,7 @@ import {
  *   API가 없다.
  * - 시간대별 잔반률: 잔반 집계에 시간대 축이 없다. 대신 같은 자리에 혼잡도
  *   추이를 둔다. 사이드바에서 뺀 분석 화면을 흡수하기로 한 자리다.
- * - 요일별 "실제 소요된 식수량": 실적을 주는 API가 없다. 예측만 보여 준다.
+ * - 요일별 실제 이용 인원: 실적을 주는 API가 없다.
  */
 
 /**
@@ -119,11 +126,14 @@ function ChartLabels({ items }: { items: { key: string | number; name: string; v
 
 function KpiCard({
   title,
+  caption,
   value,
   note,
   empty,
 }: {
   title: string
+  /** 이 카드가 무엇을 위한 값인지. 제목만으로 목적이 헷갈릴 때만 쓴다. */
+  caption?: string
   value: string
   note?: string
   empty?: boolean
@@ -131,6 +141,7 @@ function KpiCard({
   return (
     <section className="kpi-card">
       <h2 className="kpi-title">{title}</h2>
+      {caption ? <p className="kpi-caption">{caption}</p> : null}
       <p className={empty ? 'kpi-value is-empty' : 'kpi-value'}>{value}</p>
       {note ? <p className="kpi-note">{note}</p> : null}
     </section>
@@ -164,8 +175,32 @@ function useCurrentCongestion(
   return query.data ?? fallback
 }
 
-function KpiRow({ dashboard, siteId }: { dashboard: AdminDashboard; siteId: number }) {
+/**
+ * 현재 식당 혼잡도. 식수 예측 카드 옆에 두지만 별개의 결과다.
+ *
+ * 예측은 선택한 날짜의 계획이고, 이것은 지금 이 순간의 관측이다.
+ */
+function CongestionCard({ dashboard, siteId }: { dashboard: AdminDashboard; siteId: number }) {
   const congestion = useCurrentCongestion(siteId, dashboard.currentCongestion)
+
+  return (
+    <KpiCard
+      title="현재 식당 혼잡도"
+      caption="지금 이용 상황 · CCTV 관측"
+      // 임의로 "보통"을 띄우지 않는다. 관측이 없다는 것과 여유롭다는 것은
+      // 다른 말이다.
+      value={congestion ? CONGESTION_LEVEL_LABEL[congestion.level] : '혼잡도 데이터 없음'}
+      empty={!congestion}
+      note={
+        congestion
+          ? `현재 인원 ${formatCount(congestion.peopleCount, '명')} · 관측 ${formatDateTime(congestion.observedAt)}`
+          : undefined
+      }
+    />
+  )
+}
+
+function KpiRow({ dashboard }: { dashboard: AdminDashboard }) {
   const waste = dashboard.wasteSummary
   const today = todayInputValue()
 
@@ -182,19 +217,6 @@ function KpiRow({ dashboard, siteId }: { dashboard: AdminDashboard; siteId: numb
         // 0%로 표시하면 "아무도 남기지 않았다"로 읽힌다.
         empty={waste.averageWasteRate === null}
         note={`분석된 제출 ${formatCount(waste.totalSubmissions, '건')}`}
-      />
-
-      <KpiCard
-        title="현재 식당 혼잡도"
-        // 임의로 "보통"을 띄우지 않는다. 관측이 없다는 것과 여유롭다는 것은
-        // 다른 말이다.
-        value={congestion ? CONGESTION_LEVEL_LABEL[congestion.level] : '혼잡도 데이터 없음'}
-        empty={!congestion}
-        note={
-          congestion
-            ? `인원 ${formatCount(congestion.peopleCount, '명')} · 관측 ${formatDateTime(congestion.observedAt)}`
-            : undefined
-        }
       />
 
       <KpiCard
@@ -314,107 +336,6 @@ function CongestionTrendPanel({ siteId }: { siteId: number }) {
           </ResponsiveContainer>
         )}
       </StatusBlock>
-    </Panel>
-  )
-}
-
-/** 예상 식수. 실행은 예상 식수 화면에서 한다. 여기서는 저장된 값만 읽는다. */
-function DemandPanel({ dashboard, siteId }: { dashboard: AdminDashboard; siteId: number }) {
-  const today = todayInputValue()
-
-  const perMeal = useQuery({
-    queryKey: ['admin', 'demand', siteId, today],
-    queryFn: () => fetchDemandPredictions(siteId, today),
-  })
-
-  const fixture = perMeal.data?.some((row) => isFixtureModel(row.modelVersion)) ?? false
-
-  return (
-    <Panel
-      title="예상 식수"
-      note="저장된 최신 예측입니다."
-      actions={
-        <div className="panel-actions">
-          {fixture ? <span className="fixture-badge">개발용 fixture</span> : null}
-          {/*
-            Figma는 이 자리에 기간 토글을 둔다. 예측 실행 화면은 사이드바에서
-            뺐으므로 여기 링크가 없으면 주소를 직접 쳐야 들어갈 수 있다.
-          */}
-          <Link to="/demand">예측 실행</Link>
-        </div>
-      }
-    >
-      <div className="info-pair">
-        <div className="info-panel">
-          <div>
-            <p className="info-label">오늘 예상 식수</p>
-            <p className="info-caption">{today}</p>
-          </div>
-          <p
-            className={dashboard.todayPredictedPeople === null ? 'info-value is-empty' : 'info-value'}
-          >
-            {dashboard.todayPredictedPeople === null
-              ? '예측 데이터 없음'
-              : formatCount(dashboard.todayPredictedPeople, '명')}
-          </p>
-        </div>
-
-        <div className="info-panel">
-          <div>
-            <p className="info-label">내일 예상 식수</p>
-            <p className="info-caption">다음 운영일</p>
-          </div>
-          <p
-            className={
-              dashboard.tomorrowPredictedPeople === null ? 'info-value is-empty' : 'info-value'
-            }
-          >
-            {dashboard.tomorrowPredictedPeople === null
-              ? '예측 데이터 없음'
-              : formatCount(dashboard.tomorrowPredictedPeople, '명')}
-          </p>
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <StatusBlock
-          isLoading={perMeal.isPending}
-          error={perMeal.error}
-          data={perMeal.data}
-          isEmpty={(rows) => rows.length === 0}
-          emptyMessage="오늘 실행된 예측이 없습니다."
-        >
-          {(rows) => (
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th scope="col">식사</th>
-                    <th scope="col">예상 인원</th>
-                    <th scope="col">모델</th>
-                    <th scope="col">실행 시각</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MEAL_TYPES.map((meal) => {
-                    // 같은 끼니를 여러 번 실행할 수 있다. 서버가 최신을 먼저
-                    // 주므로 첫 줄만 본다.
-                    const row = rows.find((item) => item.mealType === meal)
-                    return (
-                      <tr key={meal}>
-                        <td>{MEAL_TYPE_LABEL[meal]}</td>
-                        <td>{row ? formatCount(row.predictedPeople, '명') : NO_VALUE}</td>
-                        <td className="model-version">{row ? row.modelVersion : NO_VALUE}</td>
-                        <td>{row ? formatDateTime(row.createdAt) : NO_VALUE}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </StatusBlock>
-      </div>
     </Panel>
   )
 }
@@ -616,14 +537,22 @@ export function DashboardPage() {
           */}
           <h1 className="sr-only">대시보드</h1>
 
-          <KpiRow dashboard={dashboard} siteId={siteId} />
+          {/*
+            두 AI 기능. 식수 예측(선택한 날짜의 계획)과 현재 혼잡도(지금 이용 상황)는
+            목적이 달라 카드를 나눈다. 한 결과처럼 합치지 않는다.
+          */}
+          <div className="dash-top">
+            <DemandForecastPanel />
+            <CongestionCard dashboard={dashboard} siteId={siteId} />
+          </div>
+
+          <KpiRow dashboard={dashboard} />
 
           <div className="dash-row">
             <WasteByMenuPanel />
             <CongestionTrendPanel siteId={siteId} />
           </div>
 
-          <DemandPanel dashboard={dashboard} siteId={siteId} />
           <ProcurementPanel dashboard={dashboard} />
           <SurveyPanels />
         </div>

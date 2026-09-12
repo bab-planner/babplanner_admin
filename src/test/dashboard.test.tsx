@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, screen } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import type { AdminDashboard } from '../api/types'
 import {
@@ -30,6 +30,23 @@ function show(dashboard: Partial<AdminDashboard>) {
     current
       ? jsonResponse(envelope(current))
       : jsonResponse(errorEnvelope('CONGESTION_NOT_AVAILABLE', '관측이 없습니다.'), 404),
+  )
+  // 맨 위 식수 예측 카드가 처음 한 번 모델 상태를 읽는다.
+  fetchMock.on(
+    '/api/v1/admin/demand-forecasts/status',
+    jsonResponse(
+      envelope({
+        available: true,
+        modelLoaded: true,
+        historyAvailable: true,
+        modelName: 'lightgbm',
+        modelVersion: '54453980807e',
+        syntheticData: true,
+        trainingPeriod: ['2023-03-13', '2026-09-11'],
+        reason: null,
+        warnings: [],
+      }),
+    ),
   )
   renderWithProviders(<DashboardPage />)
   return fetchMock
@@ -205,32 +222,47 @@ describe('잔반 요약', () => {
   })
 })
 
-describe('예상 식수', () => {
+describe('식수 예측은 하나다', () => {
+  it('예전 "예상 식수" 패널이 없고, 식수 예측 영역은 맨 위 카드 하나다', async () => {
+    const fetchMock = show({})
+
+    await screen.findByRole('region', { name: '중식 예상 인원' })
+
+    // 이름 있는 영역(region) 가운데 예측 카드는 하나다.
+    expect(screen.getAllByRole('region', { name: /예상/ })).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: '예상 식수' })).not.toBeInTheDocument()
+    expect(screen.queryByText('오늘 예상 식수')).not.toBeInTheDocument()
+    expect(screen.queryByText('내일 예상 식수')).not.toBeInTheDocument()
+    expect(screen.queryByText(/예측 데이터 없음/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '예측 실행' })).not.toBeInTheDocument()
+    // 저장된 끼니별 실행 이력(발주 기준 인원)은 대시보드가 읽지 않는다.
+    expect(fetchMock.countOf('/api/v1/admin/demand-predictions')).toBe(0)
+  })
+
   it('예측이 없으면 0명으로 표시하지 않는다', async () => {
     show({ todayPredictedPeople: null, tomorrowPredictedPeople: null })
 
-    // 오늘과 내일 두 자리 모두 비어 있다고 말한다.
-    expect(await screen.findAllByText(/예측 데이터 없음/)).toHaveLength(2)
+    await screen.findByRole('region', { name: '중식 예상 인원' })
     expect(screen.queryByText('0명')).not.toBeInTheDocument()
   })
 
-  it('실행 화면으로 가는 길을 준다', async () => {
-    show({})
-
-    // 예상 식수 화면은 Figma 사이드바에 없어 메뉴에서 뺐다. 여기 링크가
-    // 없으면 주소를 직접 쳐야 들어갈 수 있다.
-    expect(await screen.findByRole('link', { name: '예측 실행' })).toHaveAttribute(
-      'href',
-      '/demand',
-    )
-    expect(screen.getByRole('link', { name: '발주 실행' })).toHaveAttribute('href', '/procurement')
-  })
-
-  it('서버가 값을 주면 그대로 보여 준다', async () => {
+  it('대시보드 API의 예전 오늘/내일 값을 두 번째 예측처럼 보여 주지 않는다', async () => {
+    // 식수 예측은 맨 위 카드 하나로 보여 준다. 다른 출처의 숫자를 나란히 두면
+    // 관리자는 어느 것이 예측인지 알 수 없다.
     show({ todayPredictedPeople: 128, tomorrowPredictedPeople: 96 })
 
-    expect(await screen.findByText('128명')).toBeInTheDocument()
-    expect(screen.getByText('96명')).toBeInTheDocument()
+    await screen.findByRole('region', { name: '중식 예상 인원' })
+    expect(screen.queryByText('128명')).not.toBeInTheDocument()
+    expect(screen.queryByText('96명')).not.toBeInTheDocument()
+  })
+
+  it('발주 추천으로 가는 길은 그대로다', async () => {
+    show({})
+
+    expect(await screen.findByRole('link', { name: '발주 실행' })).toHaveAttribute(
+      'href',
+      '/procurement',
+    )
   })
 })
 
@@ -259,6 +291,50 @@ describe('발주 추천 미리보기', () => {
     // Figma는 막대 밑에 이름과 값을 나눠 적는다. 값은 서버가 준 그대로다.
     expect(await screen.findByText('돼지고기')).toBeInTheDocument()
     expect(screen.getByText('12.5 kg')).toBeInTheDocument()
+  })
+})
+
+describe('맨 위 AI 영역', () => {
+  it('식수 예측과 현재 혼잡도가 맨 위에 나란히, 서로 다른 카드로 있다', async () => {
+    show({
+      currentCongestion: {
+        siteId: 1,
+        peopleCount: 42,
+        level: 'CROWDED',
+        displayMessage: null,
+        observedAt: '2026-09-15T02:00:00Z',
+        source: 'CCTV_AI',
+      },
+    })
+
+    const forecast = await screen.findByRole('region', { name: '중식 예상 인원' })
+    await screen.findByText('혼잡')
+
+    const top = forecast.parentElement!
+    expect(top).toHaveClass('dash-top')
+    // 대시보드 제목(sr-only) 바로 다음, 맨 위다.
+    expect(top.parentElement?.firstElementChild?.nextElementSibling).toBe(top)
+
+    const congestion = within(top)
+      .getByRole('heading', { name: '현재 식당 혼잡도' })
+      .closest('section')!
+    expect(forecast.contains(congestion)).toBe(false)
+    expect(congestion).toHaveTextContent('현재 인원 42명')
+
+    // 두 AI 결과를 한 카드로 합치지 않는다. 예측 카드에 혼잡도 설명이 없다.
+    expect(forecast).not.toHaveTextContent('혼잡')
+    expect(forecast).not.toHaveTextContent('CCTV')
+  })
+
+  it('예측을 실행하기 전에는 숫자 없이 조건만 보인다', async () => {
+    show({})
+
+    const forecast = await screen.findByRole('region', { name: '중식 예상 인원' })
+    expect(
+      await within(forecast).findByText(/누르면 예상 인원이 표시됩니다/),
+    ).toBeInTheDocument()
+    expect(within(forecast).getByText('양식 / 돈까스')).toBeInTheDocument()
+    expect(forecast).not.toHaveTextContent(/\d+명/)
   })
 })
 

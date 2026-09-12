@@ -255,3 +255,94 @@ export interface ProcurementRunRequest {
   mealType: MealType
   plannedIngredients: PlannedIngredientRequest[]
 }
+
+/*
+ * 식수 예측 (합성데이터 PoC).
+ *
+ * `/api/v1/admin/demand-forecasts/*` 계약. 위의 DemandPrediction(실행 이력을
+ * 저장하는 기존 기능)과 다른 기능이다. 이쪽은 급식 조건을 보내 예상 이용 인원을
+ * 받기만 하고, 서버가 저장하지 않는다.
+ */
+
+export interface DemandForecastRequest {
+  /** 예측일(yyyy-MM-dd). 학기 중 평일만. */
+  date: string
+  semester: number
+  semesterWeek: number
+  examPeriod: boolean
+  holiday: boolean
+  campusEvent: boolean
+  temperature: number
+  rainfall: number
+  humidity: number
+  /** 서버 enum 이름. 한글 라벨로 보내지 않는다. */
+  menuCategory: MenuCategory
+  mainMenu: string
+  /**
+   * 합성데이터 PoC용 시뮬레이션 값(0~1). 실제 선호도 데이터가 아니다.
+   * 관리자 화면에서 입력받지 않고 `demandForecastPoc.ts`가 채운다.
+   */
+  menuPopularity: number
+  specialMenu: boolean
+}
+
+/** 예측에 쓴 과거 식수. 서버가 예측일 이전 기록에서만 만든 값이다. */
+export interface DemandForecastReference {
+  previousDay: number
+  sameWeekdayPreviousWeek: number
+  rolling7DayAverage: number
+  /** 이력의 마지막 날짜(yyyy-MM-dd). */
+  historyAsOf: string
+}
+
+/** 서버가 받은 조건. 요일만 서버가 날짜에서 계산한 값이다. */
+export interface DemandForecastConditions {
+  weekday: string | null
+  semester: number
+  semesterWeek: number
+  examPeriod: boolean
+  holiday: boolean
+  campusEvent: boolean
+  temperature: number
+  rainfall: number
+  humidity: number
+  menuCategory: MenuCategory
+  mainMenu: string
+  menuPopularity: number
+  specialMenu: boolean
+}
+
+export interface DemandForecastModel {
+  name: string | null
+  /** 모델 파일 해시 앞 12자리. 화면 본문에 크게 보여 주지 않는다. */
+  version: string
+  /** true면 합성데이터로 학습한 시범 모델이다. 화면이 반드시 알린다. */
+  syntheticData: boolean
+  trainedAt: string | null
+}
+
+export interface DemandForecastResponse {
+  forecastDate: string
+  mealType: MealType
+  predictedMealCount: number
+  reference: DemandForecastReference
+  conditions: DemandForecastConditions
+  model: DemandForecastModel
+  disclaimer: string
+  warnings: string[]
+  /** 서버가 결과를 받은 시각(ISO-8601 UTC). */
+  predictedAt: string
+}
+
+export interface DemandForecastStatus {
+  available: boolean
+  modelLoaded: boolean
+  historyAvailable: boolean | null
+  modelName: string | null
+  modelVersion: string | null
+  syntheticData: boolean | null
+  trainingPeriod: string[]
+  /** 서버 내부 사정이 담긴 문구다. 화면에 그대로 보여 주지 않는다. */
+  reason: string | null
+  warnings: string[]
+}
