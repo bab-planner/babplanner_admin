@@ -12,6 +12,7 @@ import { ProcurementPage } from '../features/procurement/ProcurementPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SurveysPage } from '../features/surveys/SurveysPage'
 import { InquiriesPage } from '../features/inquiries/InquiriesPage'
+import { WasteSubmissionsPage } from '../features/wasteSubmissions/WasteSubmissionsPage'
 
 export function AppRoutes() {
   return (
@@ -34,6 +35,7 @@ export function AppRoutes() {
           <Route path="notices" element={<NoticesPage />} />
           <Route path="surveys" element={<SurveysPage />} />
           <Route path="inquiries" element={<InquiriesPage />} />
+          <Route path="waste-submissions" element={<WasteSubmissionsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

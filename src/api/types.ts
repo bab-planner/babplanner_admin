@@ -278,11 +278,6 @@ export interface DemandForecastRequest {
   /** 서버 enum 이름. 한글 라벨로 보내지 않는다. */
   menuCategory: MenuCategory
   mainMenu: string
-  /**
-   * 합성데이터 PoC용 시뮬레이션 값(0~1). 실제 선호도 데이터가 아니다.
-   * 관리자 화면에서 입력받지 않고 `demandForecastPoc.ts`가 채운다.
-   */
-  menuPopularity: number
   specialMenu: boolean
 }
 
@@ -308,7 +303,6 @@ export interface DemandForecastConditions {
   humidity: number
   menuCategory: MenuCategory
   mainMenu: string
-  menuPopularity: number
   specialMenu: boolean
 }
 
@@ -345,4 +339,25 @@ export interface DemandForecastStatus {
   /** 서버 내부 사정이 담긴 문구다. 화면에 그대로 보여 주지 않는다. */
   reason: string | null
   warnings: string[]
+}
+
+export type WasteSubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+/** 서버가 예전 흐름에서 남긴 상태. 목록에서만 읽고 처리 대상으로 보지 않는다. */
+export type LegacyWasteSubmissionStatus = 'RECEIVED' | 'VERIFYING' | 'ANALYZING' | 'FAILED'
+
+export interface WasteSubmission {
+  id: number
+  userName: string
+  /** 서버가 가려서 준다. 예: 010-****-5678 */
+  userPhoneMasked: string
+  menuId: number
+  menuName: string
+  serviceDate: string
+  status: WasteSubmissionStatus | LegacyWasteSubmissionStatus
+  earnedPoints: number | null
+  couponIssued: boolean | null
+  createdAt: string
+  capturedAt: string | null
+  reviewedAt: string | null
 }

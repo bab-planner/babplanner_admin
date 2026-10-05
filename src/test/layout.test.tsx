@@ -141,7 +141,7 @@ describe('사이드바', () => {
     renderWithProviders(<AppRoutes />, { route: '/', withSites: false, withAuth: true })
 
     const nav = await screen.findByRole('navigation', { name: '관리 메뉴' })
-    for (const label of ['대시보드', '메뉴 관리', '공지사항 관리', '문의/건의 관리']) {
+    for (const label of ['대시보드', '메뉴 관리', '공지사항 관리', '문의/건의 관리', '잔반 인증 관리']) {
       expect(within(nav).getByText(label)).toBeInTheDocument()
     }
   })

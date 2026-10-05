@@ -19,9 +19,6 @@ import {
 import { buildDemandForecastRequest } from '../api/demandForecast'
 import {
   DEMO_DEFAULT_CONDITIONS,
-  DEMO_DEFAULT_MENU_POPULARITY,
-  DEMO_POPULAR_MENU_POPULARITY,
-  demoMenuPopularity,
 } from '../api/demandForecastPoc'
 import type { DemandForecastResponse, DemandForecastStatus } from '../api/types'
 import type { Recorded } from './helpers'
@@ -70,7 +67,6 @@ function forecast(overrides: Partial<DemandForecastResponse> = {}): DemandForeca
       humidity: 60,
       menuCategory: 'WESTERN',
       mainMenu: '돈까스',
-      menuPopularity: 0.9,
       specialMenu: false,
     },
     model: { name: 'lightgbm', version: '54453980807e', syntheticData: true, trainedAt: null },
@@ -128,7 +124,6 @@ const DEMO_BODY = {
   humidity: 60,
   menuCategory: 'WESTERN',
   mainMenu: '돈까스',
-  menuPopularity: DEMO_POPULAR_MENU_POPULARITY,
   specialMenu: false,
 }
 
@@ -164,16 +159,15 @@ describe('시연 흐름', () => {
     expect(screen.getByLabelText('예측 날짜')).toHaveValue('2026-09-15')
     expect(screen.getByLabelText('학기')).toHaveValue('2')
     expect(screen.getByLabelText('학기 주차')).toHaveValue(3)
-    expect(screen.getByLabelText('기온(℃)')).toHaveValue(24)
-    expect(screen.getByLabelText('강수량(mm)')).toHaveValue(0)
-    expect(screen.getByLabelText('습도(%)')).toHaveValue(60)
+    expect(screen.getByLabelText('예보 기온(℃)')).toHaveValue(24)
+    expect(screen.getByLabelText('예보 강수량(mm)')).toHaveValue(0)
+    expect(screen.getByLabelText('예보 습도(%)')).toHaveValue(60)
     expect(screen.getByLabelText('메뉴 유형')).toHaveValue('WESTERN')
     expect(screen.getByLabelText('메인 메뉴')).toHaveValue('돈까스')
     for (const label of ['시험 기간', '교내 행사', '공휴일', '특식']) {
       expect(screen.getByLabelText(label)).not.toBeChecked()
     }
-    // menuPopularity는 입력으로 받지 않는다.
-    expect(screen.queryByLabelText(/선호도|popularity/i)).not.toBeInTheDocument()
+    expect(screen.getByText('예측 시점(전날)에 확보 가능한 예보값을 입력')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '조건 접기' }))
     expect(screen.queryByLabelText('학기 주차')).not.toBeInTheDocument()
@@ -221,7 +215,7 @@ describe('시연 흐름', () => {
 
     await user.selectOptions(screen.getByLabelText('메뉴 유형'), 'KOREAN')
     await replaceValue(user, '메인 메뉴', '비빔밥')
-    await replaceValue(user, '강수량(mm)', '12.5')
+    await replaceValue(user, '예보 강수량(mm)', '12.5')
     await user.click(screen.getByLabelText('시험 기간'))
     await user.click(screen.getByRole('button', { name: '이 조건으로 예측' }))
 
@@ -231,7 +225,6 @@ describe('시연 흐름', () => {
       mainMenu: '비빔밥',
       rainfall: 12.5,
       examPeriod: true,
-      menuPopularity: DEMO_DEFAULT_MENU_POPULARITY,
     })
   })
 
@@ -311,7 +304,6 @@ describe('숫자는 서버에서만', () => {
     expect(document.body).not.toHaveTextContent(/\d+\s*L\b/)
     expect(document.body).not.toHaveTextContent('식수량')
     expect(document.body).not.toHaveTextContent('AI가')
-    expect(document.body).not.toHaveTextContent(/선호도|popularity/i)
   })
 
   it('FastAPI 내부 경로를 부르지 않는다', async () => {
@@ -542,7 +534,7 @@ describe('입력 검증', () => {
     const fetchMock = setup()
     await predictButton()
     const user = await openConditions()
-    await replaceValue(user, '습도(%)', '101')
+    await replaceValue(user, '예보 습도(%)', '101')
     await user.clear(screen.getByLabelText('메인 메뉴'))
 
     await user.click(screen.getByRole('button', { name: '이 조건으로 예측' }))
@@ -614,16 +606,6 @@ describe('메뉴 분류와 PoC 임시 값', () => {
 
   it('시연 기본 조건은 조건만 정하고 결과 숫자는 담지 않는다', () => {
     expect(Object.keys(DEMO_DEFAULT_CONDITIONS)).not.toContain('predictedMealCount')
-    expect(Object.keys(DEMO_DEFAULT_CONDITIONS)).not.toContain('menuPopularity')
     expect(buildDemandForecastRequest(DEMO_DEFAULT_CONDITIONS)).toEqual(DEMO_BODY)
-  })
-
-  it('menuPopularity는 한 파일의 시연용 규칙으로만 정해진다', () => {
-    expect(demoMenuPopularity('돈까스')).toBe(DEMO_POPULAR_MENU_POPULARITY)
-    expect(demoMenuPopularity(' 돈까스 ')).toBe(DEMO_POPULAR_MENU_POPULARITY)
-    expect(demoMenuPopularity('비빔밥')).toBe(DEMO_DEFAULT_MENU_POPULARITY)
-    expect(
-      buildDemandForecastRequest({ ...DEMO_DEFAULT_CONDITIONS, menuCategory: 'KOREAN', mainMenu: ' 비빔밥 ' }),
-    ).toMatchObject({ mainMenu: '비빔밥', menuPopularity: DEMO_DEFAULT_MENU_POPULARITY })
   })
 })

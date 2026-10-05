@@ -121,10 +121,12 @@ interface RequestOptions {
   /** 인증 헤더를 붙이지 않는다. 로그인과 갱신에만 쓴다. */
   anonymous?: boolean
   signal?: AbortSignal
+  /** 기본은 JSON. 이미지처럼 본문이 바이트인 응답만 바꾼다. */
+  accept?: string
 }
 
 function headersFor(options: RequestOptions): HeadersInit {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: options.accept ?? 'application/json' }
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'
   }
@@ -204,7 +206,7 @@ export function refreshSession(): Promise<boolean> {
  * 403은 갱신하지 않는다. 인증은 멀쩡하고 권한이 없는 것이라, 갱신해도 결과가
  * 같고 매번 로그아웃시키면 화면을 쓸 수 없게 된다.
  */
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function sendAuthenticated(path: string, options: RequestOptions): Promise<Response> {
   let response = await send(path, options)
 
   if (response.status === 401 && !options.anonymous) {
@@ -220,6 +222,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   }
 
+  return response
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await sendAuthenticated(path, options)
+
   if (!response.ok) {
     throw await toApiError(response)
   }
@@ -230,6 +238,23 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const envelope = await readEnvelope<T>(response)
   return (envelope?.data ?? null) as T
+}
+
+/**
+ * 바이트 응답 하나. 인증이 필요한 이미지를 Blob으로 받는다.
+ *
+ * <img src> 는 Authorization 헤더를 붙일 수 없다. 401 갱신 규칙은 request 와
+ * 같다. 실패하면 서버 본문을 그대로 쓰지 않고 ApiError 로 바꾼다.
+ */
+export async function requestBlob(
+  path: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<Blob> {
+  const response = await sendAuthenticated(path, { accept: 'image/*', signal: options.signal })
+  if (!response.ok) {
+    throw await toApiError(response)
+  }
+  return response.blob()
 }
 
 /** 서버가 세션을 끊었다고 알린다. 로그인 화면이 직접 부른다. */

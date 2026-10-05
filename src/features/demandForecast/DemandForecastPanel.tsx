@@ -499,7 +499,8 @@ export function DemandForecastPanel() {
 
           <fieldset className="forecast-fieldset">
             <legend>날씨 예보</legend>
-            <Field label="기온(℃)" htmlFor="forecast-temperature" error={errors.temperature}>
+            <p className="field-hint">예측 시점(전날)에 확보 가능한 예보값을 입력</p>
+            <Field label="예보 기온(℃)" htmlFor="forecast-temperature" error={errors.temperature}>
               <input
                 id="forecast-temperature"
                 type="number"
@@ -509,7 +510,7 @@ export function DemandForecastPanel() {
                 {...invalid('temperature')}
               />
             </Field>
-            <Field label="강수량(mm)" htmlFor="forecast-rainfall" error={errors.rainfall}>
+            <Field label="예보 강수량(mm)" htmlFor="forecast-rainfall" error={errors.rainfall}>
               <input
                 id="forecast-rainfall"
                 type="number"
@@ -520,7 +521,7 @@ export function DemandForecastPanel() {
                 {...invalid('rainfall')}
               />
             </Field>
-            <Field label="습도(%)" htmlFor="forecast-humidity" error={errors.humidity}>
+            <Field label="예보 습도(%)" htmlFor="forecast-humidity" error={errors.humidity}>
               <input
                 id="forecast-humidity"
                 type="number"

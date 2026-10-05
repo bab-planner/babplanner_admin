@@ -1,4 +1,3 @@
-import { demoMenuPopularity } from './demandForecastPoc'
 import { request } from './http'
 import type { DemandForecastRequest, DemandForecastResponse, DemandForecastStatus } from './types'
 
@@ -10,19 +9,13 @@ import type { DemandForecastRequest, DemandForecastResponse, DemandForecastStatu
  * 두지 않는다.
  */
 
-/**
- * 관리자가 화면에서 입력하는 "급식 조건".
- *
- * 요청 계약에서 `menuPopularity`만 뺀 것이다. 그 값은 ML 입력 값이라 관리자에게
- * 받지 않는다.
- */
-export type DemandForecastConditionsInput = Omit<DemandForecastRequest, 'menuPopularity'>
+/** 관리자가 화면에서 입력하는 "급식 조건". 요청 계약과 같다. */
+export type DemandForecastConditionsInput = DemandForecastRequest
 
 /**
  * 급식 조건을 서버 요청으로 만든다.
  *
- * `menuPopularity`는 PoC 임시 값으로 채운다(`demandForecastPoc.ts`). 그 밖의 값은
- * 입력 그대로다. 메뉴 분류는 서버 enum 이름(WESTERN 등)을 그대로 보낸다.
+ * 메인 메뉴의 앞뒤 공백만 다듬고 나머지는 입력 그대로다. 메뉴 분류는 서버 enum 이름(WESTERN 등)을 그대로 보낸다.
  */
 export function buildDemandForecastRequest(
   conditions: DemandForecastConditionsInput,
@@ -31,8 +24,6 @@ export function buildDemandForecastRequest(
   return {
     ...conditions,
     mainMenu,
-    // TODO(demand-forecast): 실제 메뉴별 식수 기록으로 계산되면 이 줄을 지운다.
-    menuPopularity: demoMenuPopularity(mainMenu),
   }
 }
 

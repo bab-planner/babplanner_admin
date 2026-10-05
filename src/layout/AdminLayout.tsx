@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { ChartColumnBig, Megaphone, MessageSquareMore, Utensils } from 'lucide-react'
+import { Camera, ChartColumnBig, Megaphone, MessageSquareMore, Utensils } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { SiteSelect } from '../components/SiteSelect'
 
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/menus', label: '메뉴 관리', icon: Utensils },
   { to: '/notices', label: '공지사항 관리', icon: Megaphone },
   { to: '/inquiries', label: '문의/건의 관리', icon: MessageSquareMore },
+  { to: '/waste-submissions', label: '잔반 인증 관리', icon: Camera },
 ] as const
 
 /**

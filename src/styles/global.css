@@ -673,6 +673,12 @@ a {
   margin-bottom: 12px;
 }
 
+.field-hint {
+  margin: 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+}
+
 .field-error {
   color: var(--orange);
   font-size: 12px;
@@ -1719,4 +1725,61 @@ a {
   .admin-content {
     padding: 16px;
   }
+}
+
+/* ---------- 잔반 인증 관리 ---------- */
+
+.tab-list {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-button {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab-button[aria-selected='true'] {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.waste-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--divider);
+}
+
+.waste-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  margin: 12px auto;
+  border-radius: 8px;
+}
+
+.dialog.dialog-wide {
+  width: min(640px, 92vw);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.badge-pending {
+  background: var(--info-surface);
+  color: var(--blue);
+}
+
+.badge-approved {
+  background: var(--primary-light);
+  color: var(--primary);
 }
