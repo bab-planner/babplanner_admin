@@ -98,8 +98,3 @@ export function hoursAgoLocalInput(hours: number): string {
 export function nowLocalInput(): string {
   return isoToLocalInput(new Date().toISOString())
 }
-
-/** 개발용 fixture가 낸 값인지. 화면이 이걸 보고 경고를 띄운다. */
-export function isFixtureModel(modelVersion: string | null | undefined): boolean {
-  return Boolean(modelVersion?.startsWith('fastapi-fixture-'))
-}

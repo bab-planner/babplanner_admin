@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Bar,
@@ -28,7 +27,6 @@ import {
   daysAgoInputValue,
   formatCount,
   formatDateTime,
-  formatQuantity,
   formatRate,
   formatTime,
   hoursAgoLocalInput,
@@ -46,9 +44,6 @@ import {
  * 그 아래는 Figma 관리자 웹 대시보드(147:4525)를 따른다. KPI 행, 분석 블록이 32px
  * 간격으로 쌓인다.
  *
- * 식수 예측은 맨 위 카드 하나뿐이다. 예전에 있던 "예상 식수" 패널(저장된 끼니별 실행
- * 이력과 대시보드 API의 오늘/내일 값)은 뺐다. 끼니별 실행은 발주 추천의 선행 조건이라
- * "발주 기준 인원" 화면(/demand)에 남아 있다.
  *
  * 서버가 준 것만 보여 준다. 값이 없는 자리는 비어 있다고 말하고, 0이나 예시
  * 숫자로 메우지 않는다. 관리자는 여기 뜬 숫자로 식수를 잡고 발주를 넣기
@@ -152,7 +147,7 @@ function KpiCard({
  * 현재 혼잡도만 짧은 주기로 다시 읽는다.
  *
  * CCTV 수집기가 서버에 관측을 계속 넣는 동안 이 값만 따라 움직이면 된다.
- * 대시보드 전체(잔반·예측·발주)를 같은 주기로 다시 부르면 바뀌지도 않는 값
+ * 대시보드 전체(잔반·혼잡도 요약)를 같은 주기로 다시 부르면 바뀌지도 않는 값
  * 때문에 요청이 몇 배로 늘어난다. 그래서 폴링은 이 조회 하나에만 건다.
  */
 const CURRENT_CONGESTION_REFETCH_MS = 5_000
@@ -340,59 +335,6 @@ function CongestionTrendPanel({ siteId }: { siteId: number }) {
   )
 }
 
-/** 메뉴 별 추천 발주량. 대시보드가 함께 내려준 미리보기를 쓴다. */
-function ProcurementPanel({ dashboard }: { dashboard: AdminDashboard }) {
-  const preview = dashboard.procurementPreview
-
-  return (
-    <Panel
-      title="메뉴 별 추천 발주량"
-      note="가장 최근 실행 결과입니다."
-      actions={
-        <div className="panel-actions">
-          <Link to="/procurement">발주 실행</Link>
-        </div>
-      }
-    >
-      {preview.length === 0 ? (
-        // 0kg 추천처럼 보이게 하지 않는다.
-        <p className="status status-empty" role="status">
-          추천 데이터 없음
-        </p>
-      ) : (
-        <>
-          <ResponsiveContainer width="100%" height={332}>
-            <BarChart data={preview} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="ingredientName" tick={false} height={0} />
-              <YAxis width={56} />
-              <Tooltip
-                formatter={(value: number, _name, item) =>
-                  formatQuantity(value, item?.payload?.unit as string | undefined)
-                }
-              />
-              <Bar
-                dataKey="recommendedQuantity"
-                name="추천 발주량"
-                fill="#ff4925"
-                maxBarSize={MAX_BAR}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-          <ChartLabels
-            items={preview.map((item) => ({
-              key: `${item.ingredientName}-${item.unit}`,
-              name: item.ingredientName,
-              value: formatQuantity(item.recommendedQuantity, item.unit),
-            }))}
-          />
-        </>
-      )}
-    </Panel>
-  )
-}
-
 function ScaleBreakdown({ result, survey }: { result: SurveyResult; survey: Survey }) {
   const scale = survey.questions.find((question) => question.type === 'SCALE')
   const summary = scale
@@ -553,7 +495,6 @@ export function DashboardPage() {
             <CongestionTrendPanel siteId={siteId} />
           </div>
 
-          <ProcurementPanel dashboard={dashboard} />
           <SurveyPanels />
         </div>
       )}

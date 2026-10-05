@@ -72,23 +72,9 @@ export interface MenuWaste {
   sampleCount: number
 }
 
-export interface ProcurementItem {
-  ingredientName: string
-  unit: string
-  plannedQuantity: number | null
-  recommendedQuantity: number
-  adjustmentRate: number | null
-  reason: string | null
-}
-
 export interface AdminDashboard {
-  /** 수요 예측 모델이 없어 현재는 항상 null이다. */
-  todayPredictedPeople: number | null
-  tomorrowPredictedPeople: number | null
   currentCongestion: Congestion | null
   wasteSummary: WasteSummary
-  /** 발주 추천 모델이 없어 현재는 항상 빈 배열이다. */
-  procurementPreview: ProcurementItem[]
 }
 
 export interface Nutrition {
@@ -226,41 +212,10 @@ export interface Inquiry {
   answeredAt: string | null
 }
 
-export interface DemandPrediction {
-  id: number
-  siteId: number
-  serviceDate: string
-  mealType: MealType
-  predictedPeople: number
-  /** fastapi-fixture- 로 시작하면 개발용 fixture다. 예측이 아니다. */
-  modelVersion: string
-  createdAt: string
-}
-
-export interface DemandPredictionRequest {
-  siteId: number
-  serviceDate: string
-  mealType: MealType
-}
-
-export interface PlannedIngredientRequest {
-  ingredientName: string
-  unit: string
-  plannedQuantity: number
-}
-
-export interface ProcurementRunRequest {
-  siteId: number
-  serviceDate: string
-  mealType: MealType
-  plannedIngredients: PlannedIngredientRequest[]
-}
-
 /*
  * 식수 예측 (합성데이터 PoC).
  *
- * `/api/v1/admin/demand-forecasts/*` 계약. 위의 DemandPrediction(실행 이력을
- * 저장하는 기존 기능)과 다른 기능이다. 이쪽은 급식 조건을 보내 예상 이용 인원을
+ * `/api/v1/admin/demand-forecasts/*` 계약. 급식 조건을 보내 예상 이용 인원을
  * 받기만 하고, 서버가 저장하지 않는다.
  */
 

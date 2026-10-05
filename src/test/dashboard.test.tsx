@@ -11,11 +11,8 @@ import {
 } from './helpers'
 
 const EMPTY: AdminDashboard = {
-  todayPredictedPeople: null,
-  tomorrowPredictedPeople: null,
   currentCongestion: null,
   wasteSummary: { totalSubmissions: 0, averageWasteRate: null, repeatedWasteMenuCount: null },
-  procurementPreview: [],
 }
 
 function show(dashboard: Partial<AdminDashboard>) {
@@ -153,7 +150,7 @@ describe('현재 혼잡도 실시간 갱신', () => {
 
       expect(await screen.findByText('매우 혼잡')).toBeInTheDocument()
       expect(screen.getByText(/21명/)).toBeInTheDocument()
-      // 잔반·예측·발주까지 같은 주기로 다시 부르지 않는다.
+      // 잔반·혼잡도 요약까지 같은 주기로 다시 부르지 않는다.
       expect(fetchMock.countOf('/api/v1/admin/dashboard')).toBe(1)
     } finally {
       vi.useRealTimers()
@@ -224,7 +221,7 @@ describe('잔반 요약', () => {
 
 describe('식수 예측은 하나다', () => {
   it('예전 "예상 식수" 패널이 없고, 식수 예측 영역은 맨 위 카드 하나다', async () => {
-    const fetchMock = show({})
+    show({})
 
     await screen.findByRole('region', { name: '중식 예상 인원' })
 
@@ -235,63 +232,15 @@ describe('식수 예측은 하나다', () => {
     expect(screen.queryByText('내일 예상 식수')).not.toBeInTheDocument()
     expect(screen.queryByText(/예측 데이터 없음/)).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '예측 실행' })).not.toBeInTheDocument()
-    // 저장된 끼니별 실행 이력(발주 기준 인원)은 대시보드가 읽지 않는다.
-    expect(fetchMock.countOf('/api/v1/admin/demand-predictions')).toBe(0)
   })
 
   it('예측이 없으면 0명으로 표시하지 않는다', async () => {
-    show({ todayPredictedPeople: null, tomorrowPredictedPeople: null })
+    show({})
 
     await screen.findByRole('region', { name: '중식 예상 인원' })
     expect(screen.queryByText('0명')).not.toBeInTheDocument()
   })
 
-  it('대시보드 API의 예전 오늘/내일 값을 두 번째 예측처럼 보여 주지 않는다', async () => {
-    // 식수 예측은 맨 위 카드 하나로 보여 준다. 다른 출처의 숫자를 나란히 두면
-    // 관리자는 어느 것이 예측인지 알 수 없다.
-    show({ todayPredictedPeople: 128, tomorrowPredictedPeople: 96 })
-
-    await screen.findByRole('region', { name: '중식 예상 인원' })
-    expect(screen.queryByText('128명')).not.toBeInTheDocument()
-    expect(screen.queryByText('96명')).not.toBeInTheDocument()
-  })
-
-  it('발주 추천으로 가는 길은 그대로다', async () => {
-    show({})
-
-    expect(await screen.findByRole('link', { name: '발주 실행' })).toHaveAttribute(
-      'href',
-      '/procurement',
-    )
-  })
-})
-
-describe('발주 추천 미리보기', () => {
-  it('비어 있으면 0kg 추천처럼 보이지 않는다', async () => {
-    show({ procurementPreview: [] })
-
-    expect(await screen.findByText('추천 데이터 없음')).toBeInTheDocument()
-    expect(screen.queryByText(/0 kg/)).not.toBeInTheDocument()
-  })
-
-  it('항목이 있으면 서버 값을 그대로 보여 준다', async () => {
-    show({
-      procurementPreview: [
-        {
-          ingredientName: '돼지고기',
-          unit: 'kg',
-          plannedQuantity: 12.5,
-          recommendedQuantity: 12.5,
-          adjustmentRate: 0,
-          reason: null,
-        },
-      ],
-    })
-
-    // Figma는 막대 밑에 이름과 값을 나눠 적는다. 값은 서버가 준 그대로다.
-    expect(await screen.findByText('돼지고기')).toBeInTheDocument()
-    expect(screen.getByText('12.5 kg')).toBeInTheDocument()
-  })
 })
 
 describe('맨 위 AI 영역', () => {

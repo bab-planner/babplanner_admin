@@ -7,8 +7,6 @@ import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { MenusPage } from '../features/menus/MenusPage'
 import { CongestionPage } from '../features/congestion/CongestionPage'
 import { WastePage } from '../features/waste/WastePage'
-import { DemandPage } from '../features/demand/DemandPage'
-import { ProcurementPage } from '../features/procurement/ProcurementPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SurveysPage } from '../features/surveys/SurveysPage'
 import { InquiriesPage } from '../features/inquiries/InquiriesPage'
@@ -30,8 +28,6 @@ export function AppRoutes() {
           <Route path="menus" element={<MenusPage />} />
           <Route path="analytics/congestion" element={<CongestionPage />} />
           <Route path="analytics/waste" element={<WastePage />} />
-          <Route path="demand" element={<DemandPage />} />
-          <Route path="procurement" element={<ProcurementPage />} />
           <Route path="notices" element={<NoticesPage />} />
           <Route path="surveys" element={<SurveysPage />} />
           <Route path="inquiries" element={<InquiriesPage />} />

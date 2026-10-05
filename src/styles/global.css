@@ -1431,28 +1431,6 @@ a {
   margin-bottom: 12px;
 }
 
-/* ---------- fixture 경고 ---------- */
-
-.fixture-notice {
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  background: var(--orange-light);
-  border: 1px solid var(--orange);
-  color: var(--primary-dark);
-  margin: 0 0 16px;
-}
-
-.fixture-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--orange-light);
-  border: 1px solid var(--orange);
-  color: var(--orange);
-  font-size: 12px;
-}
-
 .model-version {
   color: var(--text-secondary);
   font-family: ui-monospace, monospace;

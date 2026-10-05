@@ -23,11 +23,8 @@ import {
 function stubSites(fetchMock: ReturnType<typeof mockFetch>) {
   fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope([{ id: 1, name: '학생식당' }])))
   fetchMock.on('/api/v1/admin/dashboard', jsonResponse(envelope({
-    todayPredictedPeople: null,
-    tomorrowPredictedPeople: null,
     currentCongestion: null,
     wasteSummary: { totalSubmissions: 0, averageWasteRate: null, repeatedWasteMenuCount: null },
-    procurementPreview: [],
   })))
 }
 

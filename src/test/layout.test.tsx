@@ -21,11 +21,8 @@ const SITES = [
 ]
 
 const EMPTY_DASHBOARD = {
-  todayPredictedPeople: null,
-  tomorrowPredictedPeople: null,
   currentCongestion: null,
   wasteSummary: { totalSubmissions: 0, averageWasteRate: null, repeatedWasteMenuCount: null },
-  procurementPreview: [],
 }
 
 function bootstrap(fetchMock: ReturnType<typeof mockFetch>, sites = SITES) {
@@ -263,7 +260,7 @@ describe('소스 가드', () => {
 
   it('예시 숫자를 화면에 박아 두지 않는다', () => {
     // 과거 초안에 있던 값이다. 데이터가 없을 때 이런 숫자가 뜨면 관리자는
-    // 그걸 믿고 발주한다.
+    // 그걸 믿고 식수를 잡는다.
     for (const { path, text } of sources) {
       for (const sample of ['528', '370', '369L', '45인분']) {
         expect(text, `${path}: ${sample}`).not.toContain(sample)
