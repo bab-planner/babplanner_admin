@@ -18,7 +18,9 @@ import {
 } from '../features/demandForecast/forecastMath'
 import { buildDemandForecastRequest } from '../api/demandForecast'
 import {
+  createDefaultForecastConditions,
   DEMO_DEFAULT_CONDITIONS,
+  nextWeekdayInKorea,
 } from '../api/demandForecastPoc'
 import type { DemandForecastResponse, DemandForecastStatus } from '../api/types'
 import type { Recorded } from './helpers'
@@ -127,6 +129,19 @@ const DEMO_BODY = {
   specialMenu: false,
 }
 
+describe('한국 시간 기준 다음 평일 기본값', () => {
+  it('월요일~목요일은 다음 날, 금요일·주말은 다음 월요일을 고른다', () => {
+    expect(nextWeekdayInKorea(new Date('2026-01-04T15:00:00Z'))).toBe('2026-01-06') // 한국 월요일
+    expect(nextWeekdayInKorea(new Date('2026-01-08T15:00:00Z'))).toBe('2026-01-12') // 한국 금요일
+    expect(nextWeekdayInKorea(new Date('2026-01-09T15:00:00Z'))).toBe('2026-01-12') // 한국 토요일
+    expect(nextWeekdayInKorea(new Date('2026-01-10T15:00:00Z'))).toBe('2026-01-12') // 한국 일요일
+  })
+
+  it('한국 날짜와 연도 경계를 넘겨 계산한다', () => {
+    expect(nextWeekdayInKorea(new Date('2026-12-31T15:00:00Z'))).toBe('2027-01-04')
+  })
+})
+
 describe('시연 흐름', () => {
   it('기본은 결과 중심이고 조건 입력 폼은 접혀 있다', async () => {
     setup()
@@ -142,23 +157,25 @@ describe('시연 흐름', () => {
   it('시연 기본 조건이 요약되어 있다', async () => {
     setup()
     await predictButton()
+    const defaults = createDefaultForecastConditions()
 
     const conditions = within(screen.getByRole('list', { name: '예측 조건' }))
-    for (const chip of ['화요일', '2학기 3주차', '시험기간 아님', '양식 / 돈까스', '기온 24℃', '강수 없음', '습도 60%']) {
+    for (const chip of [`${['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'][new Date(`${defaults.date}T00:00:00`).getDay()]}`, `${defaults.semester}학기 ${defaults.semesterWeek}주차`, '시험기간 아님', '양식 / 돈까스', '기온 24℃', '강수 없음', '습도 60%']) {
       expect(conditions.getByText(chip)).toBeInTheDocument()
     }
-    expect(screen.getByText('예측 조건 · 2026.09.15')).toBeInTheDocument()
+    expect(screen.getByText(`예측 조건 · ${defaults.date.replaceAll('-', '.')}`)).toBeInTheDocument()
   })
 
   it('펼치면 시연 기본값이 들어 있고, 다시 접을 수 있다', async () => {
     setup()
     await predictButton()
     const user = await openConditions()
+    const defaults = createDefaultForecastConditions()
 
     expect(screen.getByRole('button', { name: '조건 접기' })).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByLabelText('예측 날짜')).toHaveValue('2026-09-15')
-    expect(screen.getByLabelText('학기')).toHaveValue('2')
-    expect(screen.getByLabelText('학기 주차')).toHaveValue(3)
+    expect(screen.getByLabelText('예측 날짜')).toHaveValue(defaults.date)
+    expect(screen.getByLabelText('학기')).toHaveValue(String(defaults.semester))
+    expect(screen.getByLabelText('학기 주차')).toHaveValue(defaults.semesterWeek)
     expect(screen.getByLabelText('예보 기온(℃)')).toHaveValue(24)
     expect(screen.getByLabelText('예보 강수량(mm)')).toHaveValue(0)
     expect(screen.getByLabelText('예보 습도(%)')).toHaveValue(60)
@@ -167,7 +184,7 @@ describe('시연 흐름', () => {
     for (const label of ['시험 기간', '교내 행사', '공휴일', '특식']) {
       expect(screen.getByLabelText(label)).not.toBeChecked()
     }
-    expect(screen.getByText('예측 시점(전날)에 확보 가능한 예보값을 입력')).toBeInTheDocument()
+    expect(screen.getByText('자동 연동 전까지 직접 입력하는 시연용 예보값')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '조건 접기' }))
     expect(screen.queryByLabelText('학기 주차')).not.toBeInTheDocument()
@@ -182,7 +199,7 @@ describe('시연 흐름', () => {
     expect(await screen.findByText('431명')).toBeInTheDocument()
     const [post] = predictCalls(fetchMock)
     expect(post!.method).toBe('POST')
-    expect(post!.body).toEqual(DEMO_BODY)
+    expect(post!.body).toEqual(createDefaultForecastConditions())
   })
 
   it('결과 카드는 예상 인원 → 평균 대비 → 비교값 → 기준 기록일 순이다', async () => {

@@ -57,6 +57,7 @@ npm run dev      # http://localhost:5173
 |---|---|
 | `VITE_API_BASE_URL` | API Origin (예: `https://api.example.com`). **Production 필수**, 개발에서는 비우면 Vite 프록시 |
 | `VITE_DEV_API_TARGET` | 개발 서버가 `/api` 를 넘길 곳 (기본 `http://127.0.0.1:8080`) |
+| `VITE_DEMO_MODE` | `true`면 대시보드에 “시연용 샘플 데이터”와 시연용 혼잡도 관측 안내를 표시. 기본값은 `false`; API를 Mock으로 바꾸지 않음 |
 
 ## Vercel 배포
 
@@ -66,6 +67,7 @@ npm run dev      # http://localhost:5173
    - 이름: `VITE_API_BASE_URL`, 환경: **Production**(필요하면 Preview 도)
    - 값: API Origin 만. 예 `https://api.example.com` — `/api/v1` 은 붙이지 않는다.
    - 비밀 값(API 키, JWT 서명 키, DB 비밀번호)을 `VITE_*` 로 넣지 않는다.
+   - 시연 DB를 보여 주는 배포라면 `VITE_DEMO_MODE=true`도 등록한다. 이 값은 시연 표기만 바꾸며 API Origin·인증·CORS는 바꾸지 않는다.
 3. 환경변수는 **빌드 시점**에 번들에 박힌다. HTTPS 백엔드 주소가 정해지면 등록 후 반드시 재배포한다.
 4. 백엔드는 Vercel 배포 Origin(예 `https://<project>.vercel.app`)을 CORS 에서 허용해야 한다.
 
@@ -145,11 +147,11 @@ Vercel 은 API 를 프록시하지 않으며 브라우저가 API Origin 을 직�
 
 ### 시연
 
-기본 조건: 2026-09-15 · 2학기 3주차 · 시험·행사·공휴일 아님 · 기온 24 · 강수 0 ·
-습도 60 · 양식(WESTERN) / 돈까스 · 특식 아님. `src/api/demandForecastPoc.ts`의
-`DEMO_DEFAULT_CONDITIONS` 한 곳에 있다(조건만, 결과 숫자는 없다). 이 조건으로 현재 PoC
-모델은 **431명**을 낸다. 이 숫자는 코드에 없고 서버 응답에서만 나온다(테스트가 소스를
-훑어 확인한다).
+기본 날짜는 브라우저 시간대와 관계없이 **Asia/Seoul 기준 다음 평일**이다(금요일과
+주말은 다음 월요일). 학기·주차는 학사일정 API가 없어 1~16주 범위에서 추정한 시연용
+입력값이며, 휴무일·실제 운영일은 자동 확인하지 않는다. 날씨·메뉴도 자동 예보나 실제
+식단이 아닌 수정 가능한 템플릿 값이다. `기본 조건으로` 버튼도 이 현재 기준 기본값을
+다시 만든다. 결과 숫자는 항상 서버 응답에서만 나온다.
 
 실제 서버를 향한 확인(환경 변수가 없으면 건너뛴다). FastAPI → Spring → `npm run dev`를
 띄운 뒤:

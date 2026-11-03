@@ -70,7 +70,7 @@ describe('request', () => {
 describe('vercel.json', () => {
   it('SPA fallback 을 index.html 로 두고 API 프록시는 없다', () => {
     const config = JSON.parse(readFileSync('vercel.json', 'utf8'))
-    expect(config.rewrites).toEqual([{ source: '/(.*)', path: '/index.html' }])
+    expect(config.rewrites).toEqual([{ source: '/(.*)', destination: '/index.html' }])
     expect(JSON.stringify(config)).not.toContain('/api')
   })
 })

@@ -425,33 +425,57 @@ a {
   white-space: nowrap;
 }
 
-/*
- * 차트 아래 값 라벨. Figma는 막대 밑에 항목 이름과 값을 함께 적는다.
- * 왼쪽 여백은 차트 Y축 폭(56)과 맞춰 막대와 줄을 세운다.
- */
-.chart-labels {
-  display: grid;
-  gap: 8px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0 8px 0 56px;
+.panel-link {
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.chart-labels li {
+.panel-link:hover {
+  text-decoration: underline;
+}
+
+.chart-range {
+  margin: -4px 0 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.waste-rate-label {
+  fill: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chart-tooltip {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  text-align: center;
-}
-
-.chart-label-name {
-  color: var(--text-primary);
+  gap: 4px;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  color: var(--text-secondary);
   font-size: 13px;
-  overflow-wrap: anywhere;
 }
 
-.chart-label-value {
+.chart-tooltip strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-notice {
+  align-self: flex-start;
+  margin: -12px 0 -16px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--divider);
   color: var(--text-secondary);
   font-size: 12px;
 }
@@ -731,6 +755,18 @@ a {
 }
 
 @media (max-width: 640px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .panel-head {
+    align-items: flex-start;
+  }
+
+  .panel-link {
+    font-size: 12px;
+  }
+
   .forecast-reference {
     grid-template-columns: 1fr;
   }

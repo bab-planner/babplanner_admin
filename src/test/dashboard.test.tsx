@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, screen, within } from '@testing-library/react'
-import { DashboardPage } from '../features/dashboard/DashboardPage'
-import type { AdminDashboard } from '../api/types'
+import { CONGESTION_FRESHNESS_MS, DashboardPage, isDemoMode, isFreshCongestion } from '../features/dashboard/DashboardPage'
+import type { AdminDashboard, MenuWaste } from '../api/types'
 import {
   envelope,
   errorEnvelope,
@@ -15,10 +15,11 @@ const EMPTY: AdminDashboard = {
   wasteSummary: { totalSubmissions: 0, averageWasteRate: null, repeatedWasteMenuCount: null },
 }
 
-function show(dashboard: Partial<AdminDashboard>) {
+function show(dashboard: Partial<AdminDashboard>, wasteRows: MenuWaste[] = []) {
   const fetchMock = mockFetch()
   fetchMock.on('/api/v1/admin/sites', jsonResponse(envelope([{ id: 1, name: '학생식당' }])))
   fetchMock.on('/api/v1/admin/dashboard', jsonResponse(envelope({ ...EMPTY, ...dashboard })))
+  fetchMock.on('/api/v1/admin/waste/by-menu', jsonResponse(envelope(wasteRows)))
   // 현재 혼잡도는 공개 endpoint를 따로 읽는다. 대시보드가 준 값과 같은
   // 저장 현재값이므로 여기서도 같은 것을 돌려준다.
   const current = { ...EMPTY, ...dashboard }.currentCongestion
@@ -71,6 +72,14 @@ describe('대시보드 조회 상태', () => {
   })
 })
 
+describe('시연 모드', () => {
+  it('true에서만 시연용 표기를 켜며 API를 Mock으로 전환하지 않는다', () => {
+    expect(isDemoMode('true')).toBe(true)
+    expect(isDemoMode('false')).toBe(false)
+    expect(isDemoMode(undefined)).toBe(false)
+  })
+})
+
 describe('현재 혼잡도', () => {
   it('저장된 값을 보여 준다', async () => {
     show({
@@ -79,7 +88,7 @@ describe('현재 혼잡도', () => {
         peopleCount: 42,
         level: 'CROWDED',
         displayMessage: '10분 이내',
-        observedAt: '2026-09-15T02:00:00Z',
+        observedAt: new Date().toISOString(),
         source: 'CCTV_AI',
       },
     })
@@ -98,13 +107,32 @@ describe('현재 혼잡도', () => {
   })
 })
 
+describe('혼잡도 관측 신선도', () => {
+  const now = Date.parse('2026-11-04T03:00:00Z')
+
+  it('15분 이내만 현재 관측으로 인정하고 미래·잘못된 시각은 제외한다', () => {
+    expect(isFreshCongestion(new Date(now - CONGESTION_FRESHNESS_MS).toISOString(), now)).toBe(true)
+    expect(isFreshCongestion(new Date(now - CONGESTION_FRESHNESS_MS - 1).toISOString(), now)).toBe(false)
+    expect(isFreshCongestion(new Date(now + 1).toISOString(), now)).toBe(false)
+    expect(isFreshCongestion('not-a-date', now)).toBe(false)
+  })
+
+  it('오래된 시연 관측은 마지막 기록으로만 표시한다', async () => {
+    show({ currentCongestion: { siteId: 1, peopleCount: 6, level: 'COMFORTABLE', displayMessage: null, observedAt: '2026-11-03T05:00:00Z', source: 'DEMO_SEED' } })
+
+    expect(await screen.findByText('현재 혼잡 정보 없음')).toBeInTheDocument()
+    expect(screen.getByText(/마지막 기록: 여유 · 6명 · 시연용 관측 데이터/)).toBeInTheDocument()
+    expect(screen.queryByText(/관측 인원 6명/)).not.toBeInTheDocument()
+  })
+})
+
 describe('현재 혼잡도 실시간 갱신', () => {
   const BASE = {
     siteId: 1,
     peopleCount: 3,
     level: 'COMFORTABLE' as const,
     displayMessage: null,
-    observedAt: '2026-08-28T08:41:09Z',
+    observedAt: new Date().toISOString(),
     source: 'CCTV_AI',
   }
 
@@ -136,7 +164,7 @@ describe('현재 혼잡도 실시간 갱신', () => {
           envelope(
             index === 0
               ? BASE
-              : { ...BASE, peopleCount: 21, level: 'VERY_CROWDED', observedAt: '2026-08-28T08:42:09Z' },
+              : { ...BASE, peopleCount: 21, level: 'VERY_CROWDED', observedAt: new Date().toISOString() },
           ),
         ),
       )
@@ -219,6 +247,25 @@ describe('잔반 요약', () => {
   })
 })
 
+describe('메뉴별 잔반률 차트', () => {
+  it('API 값에서 높은 순 상위 10개만, 정확한 비율과 표본으로 안내한다', async () => {
+    const rows = Array.from({ length: 11 }, (_, index) => ({
+      menuId: index + 1,
+      menuName: index === 10 ? '아주 긴 한글 메뉴 이름은 말줄임으로 표시됩니다 정식' : `메뉴 ${index + 1}`,
+      averageWasteRate: (11 - index) / 100,
+      sampleCount: index + 2,
+    })).reverse()
+    show({}, rows)
+
+    expect(await screen.findByText('상위 10개 / 전체 11개')).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: '메뉴별 잔반률 목록' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(10)
+    expect(list).toHaveTextContent('메뉴 1: 11.0%, 표본 2건')
+    expect(list).not.toHaveTextContent('아주 긴 한글 메뉴 이름')
+    expect(screen.getByRole('link', { name: '전체 메뉴 보기' })).toHaveAttribute('href', '/analytics/waste')
+  })
+})
+
 describe('식수 예측은 하나다', () => {
   it('예전 "예상 식수" 패널이 없고, 식수 예측 영역은 맨 위 카드 하나다', async () => {
     show({})
@@ -251,7 +298,7 @@ describe('맨 위 AI 영역', () => {
         peopleCount: 42,
         level: 'CROWDED',
         displayMessage: null,
-        observedAt: '2026-09-15T02:00:00Z',
+        observedAt: new Date().toISOString(),
         source: 'CCTV_AI',
       },
     })
@@ -268,7 +315,7 @@ describe('맨 위 AI 영역', () => {
       .getByRole('heading', { name: '현재 식당 혼잡도' })
       .closest('section')!
     expect(forecast.contains(congestion)).toBe(false)
-    expect(congestion).toHaveTextContent('현재 인원 42명')
+    expect(congestion).toHaveTextContent('관측 인원 42명')
 
     // 두 AI 결과를 한 카드로 합치지 않는다. 예측 카드에 혼잡도 설명이 없다.
     expect(forecast).not.toHaveTextContent('혼잡')

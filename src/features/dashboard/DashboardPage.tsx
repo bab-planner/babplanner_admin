@@ -7,11 +7,13 @@ import {
   Cell,
   Line,
   LineChart,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import { Link } from 'react-router-dom'
 import { fetchCongestionTimeseries, fetchWasteByMenu } from '../../api/analytics'
 import { fetchCurrentCongestion } from '../../api/congestion'
 import { fetchDashboard } from '../../api/dashboard'
@@ -65,6 +67,11 @@ import {
  * 차트가 아니라 색칠된 판처럼 보인다. Figma 막대 두께에 맞춰 상한을 둔다.
  */
 const MAX_BAR = 48
+export function isDemoMode(value = import.meta.env.VITE_DEMO_MODE): boolean {
+  return value === 'true'
+}
+
+const DEMO_MODE = isDemoMode()
 
 /** 잔반률 막대 색. 값이 높을수록 눈에 띄게 한다. 경계는 표시용이다. */
 function wasteBarColor(rate: number): string {
@@ -98,25 +105,20 @@ function Panel({
   )
 }
 
-/**
- * 차트 아래 값 라벨.
- *
- * Figma는 막대 밑에 항목 이름과 값을 함께 적는다. 그림만 두면 정확한 값을
- * 읽을 수 없고, 화면 낭독기로도 막대는 읽히지 않는다.
- *
- * 왼쪽 여백은 차트 Y축 폭과 맞춘다.
- */
-function ChartLabels({ items }: { items: { key: string | number; name: string; value: string }[] }) {
-  return (
-    <ul className="chart-labels" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
-      {items.map((item) => (
-        <li key={item.key}>
-          <span className="chart-label-name">{item.name}</span>
-          <span className="chart-label-value">{item.value}</span>
-        </li>
-      ))}
-    </ul>
-  )
+export const CONGESTION_FRESHNESS_MS = 15 * 60 * 1_000
+
+/** 현재보다 미래이거나 파싱할 수 없는 관측은 실시간 값으로 보지 않는다. */
+export function isFreshCongestion(observedAt: string | null | undefined, now = Date.now()): boolean {
+  if (!observedAt) return false
+  const observed = new Date(observedAt).getTime()
+  return Number.isFinite(observed) && observed <= now && now - observed <= CONGESTION_FRESHNESS_MS
+}
+
+function relativeObservationTime(observedAt: string, now = Date.now()): string {
+  const observed = new Date(observedAt).getTime()
+  if (!Number.isFinite(observed) || observed > now) return formatDateTime(observedAt)
+  const minutes = Math.floor((now - observed) / 60_000)
+  return minutes < 1 ? '방금 전' : `${minutes}분 전`
 }
 
 function KpiCard({
@@ -177,18 +179,36 @@ function useCurrentCongestion(
  */
 function CongestionCard({ dashboard, siteId }: { dashboard: AdminDashboard; siteId: number }) {
   const congestion = useCurrentCongestion(siteId, dashboard.currentCongestion)
+  const fresh = isFreshCongestion(congestion?.observedAt)
+  const sourceNote = congestion?.source === 'DEMO_SEED'
+    ? '시연용 관측 데이터'
+    : congestion?.source === 'CCTV_AI'
+      ? 'CCTV AI 관측'
+      : null
+
+  if (congestion && !fresh) {
+    return (
+      <KpiCard
+        title="현재 식당 혼잡도"
+        caption="현재 혼잡 정보 없음"
+        value={`마지막 관측: ${formatDateTime(congestion.observedAt)}`}
+        empty
+        note={`마지막 기록: ${CONGESTION_LEVEL_LABEL[congestion.level]} · ${formatCount(congestion.peopleCount, '명')}${sourceNote ? ` · ${sourceNote}` : ''}`}
+      />
+    )
+  }
 
   return (
     <KpiCard
       title="현재 식당 혼잡도"
-      caption="지금 이용 상황 · CCTV 관측"
+      caption={congestion ? '현재 이용 상황' : undefined}
       // 임의로 "보통"을 띄우지 않는다. 관측이 없다는 것과 여유롭다는 것은
       // 다른 말이다.
       value={congestion ? CONGESTION_LEVEL_LABEL[congestion.level] : '혼잡도 데이터 없음'}
       empty={!congestion}
       note={
         congestion
-          ? `현재 인원 ${formatCount(congestion.peopleCount, '명')} · 관측 ${formatDateTime(congestion.observedAt)}`
+          ? `관측 인원 ${formatCount(congestion.peopleCount, '명')} · ${relativeObservationTime(congestion.observedAt)}${sourceNote ? ` · ${sourceNote}` : ''}`
           : undefined
       }
     />
@@ -232,7 +252,23 @@ function KpiRow({ dashboard }: { dashboard: AdminDashboard }) {
   )
 }
 
-/** 메뉴 별 잔반률. 서버 정렬을 그대로 쓴다. */
+function truncateMenuName(name: string): string {
+  return name.length > 12 ? `${name.slice(0, 12)}…` : name
+}
+
+function MenuWasteTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { menuName: string; averageWasteRate: number; sampleCount: number } }> }) {
+  if (!active || !payload?.[0]) return null
+  const row = payload[0].payload
+  return (
+    <div className="chart-tooltip">
+      <strong>{row.menuName}</strong>
+      <span>평균 잔반률 {formatRate(row.averageWasteRate)}</span>
+      <span>표본 {formatCount(row.sampleCount, '건')}</span>
+    </div>
+  )
+}
+
+/** 메뉴 별 잔반률. 동률은 서버 순서대로 유지하며 상위 10개만 보여 준다. */
 function WasteByMenuPanel() {
   const from = daysAgoInputValue(7)
   const to = todayInputValue()
@@ -243,7 +279,11 @@ function WasteByMenuPanel() {
   })
 
   return (
-    <Panel title="메뉴 별 잔반률" note="최근 7일 · 분석이 끝난 제출만">
+    <Panel
+      title="메뉴 별 잔반률"
+      note="최근 7일 · 잔반률 높은 메뉴 TOP 10"
+      actions={<Link className="panel-link" to="/analytics/waste">전체 메뉴 보기</Link>}
+    >
       <StatusBlock
         isLoading={query.isPending}
         error={query.error}
@@ -251,30 +291,31 @@ function WasteByMenuPanel() {
         isEmpty={(rows) => rows.length === 0}
         emptyMessage="해당 기간에 분석된 제출이 없습니다."
       >
-        {(rows) => (
-          <>
-          <ResponsiveContainer width="100%" height={332}>
-            <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="menuName" tick={false} height={0} />
-              <YAxis tickFormatter={(value: number) => formatRate(value, 0)} width={56} />
-              <Tooltip formatter={(value: number) => formatRate(value)} />
-              <Bar dataKey="averageWasteRate" name="평균 잔반률" maxBarSize={MAX_BAR} radius={[4, 4, 0, 0]}>
-                {rows.map((row) => (
-                  <Cell key={row.menuId} fill={wasteBarColor(row.averageWasteRate)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <ChartLabels
-            items={rows.map((row) => ({
-              key: row.menuId,
-              name: row.menuName,
-              value: `평균 ${formatRate(row.averageWasteRate)}`,
-            }))}
-          />
-          </>
-        )}
+        {(rows) => {
+          const chartRows = rows
+            .map((row, index) => ({ ...row, index }))
+            .sort((a, b) => b.averageWasteRate - a.averageWasteRate || a.index - b.index)
+            .slice(0, 10)
+          return (
+            <>
+              <p className="chart-range">상위 {chartRows.length}개 / 전체 {rows.length}개</p>
+              <ResponsiveContainer width="100%" height={Math.max(250, chartRows.length * 42 + 24)}>
+                <BarChart layout="vertical" data={chartRows} margin={{ top: 8, right: 58, bottom: 8, left: 0 }} barCategoryGap="28%">
+                  <XAxis type="number" domain={[0, 1]} hide />
+                  <YAxis type="category" dataKey="menuName" width={128} tickLine={false} axisLine={false} tick={{ fontSize: 13, fill: '#4b5563' }} tickFormatter={truncateMenuName} />
+                  <Tooltip content={<MenuWasteTooltip />} cursor={{ fill: 'rgba(137, 23, 26, 0.06)' }} />
+                  <Bar dataKey="averageWasteRate" name="평균 잔반률" maxBarSize={24} radius={[0, 4, 4, 0]}>
+                    {chartRows.map((row) => <Cell key={row.menuId} fill={wasteBarColor(row.averageWasteRate)} />)}
+                    <LabelList dataKey="averageWasteRate" position="right" formatter={(value: number) => formatRate(value)} className="waste-rate-label" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <ul className="sr-only" aria-label="메뉴별 잔반률 목록">
+                {chartRows.map((row) => <li key={row.menuId}>{`${row.menuName}: ${formatRate(row.averageWasteRate)}, 표본 ${formatCount(row.sampleCount, '건')}`}</li>)}
+              </ul>
+            </>
+          )
+        }}
       </StatusBlock>
     </Panel>
   )
@@ -296,7 +337,7 @@ function CongestionTrendPanel({ siteId }: { siteId: number }) {
   })
 
   return (
-    <Panel title="혼잡도 추이" note="최근 24시간 · 서버에 저장된 관측만">
+    <Panel title="혼잡도 추이" note={DEMO_MODE ? '최근 24시간 · 시연용 관측 데이터' : '최근 24시간 · 서버에 저장된 관측만'}>
       <StatusBlock
         isLoading={query.isPending}
         error={query.error}
@@ -478,6 +519,7 @@ export function DashboardPage() {
             하나도 없으면 화면 낭독기가 어느 화면인지 알릴 방법이 없다.
           */}
           <h1 className="sr-only">대시보드</h1>
+          {DEMO_MODE ? <p className="demo-notice" role="note">시연용 샘플 데이터가 포함되어 있습니다.</p> : null}
 
           {/*
             두 AI 기능. 식수 예측(선택한 날짜의 계획)과 현재 혼잡도(지금 이용 상황)는

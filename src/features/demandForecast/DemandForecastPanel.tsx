@@ -7,7 +7,7 @@ import {
   predictDemandForecast,
 } from '../../api/demandForecast'
 import type { DemandForecastConditionsInput } from '../../api/demandForecast'
-import { DEMO_DEFAULT_CONDITIONS } from '../../api/demandForecastPoc'
+import { createDefaultForecastConditions } from '../../api/demandForecastPoc'
 import { ApiError } from '../../api/http'
 import type { DemandForecastResponse, MenuCategory } from '../../api/types'
 import { MENU_CATEGORIES, MENU_CATEGORY_LABEL } from '../../utils/labels'
@@ -76,7 +76,7 @@ function isWeekend(dateText: string): boolean {
   return day === 0 || day === 6
 }
 
-/** 폼 값. 시연 기본 조건(demandForecastPoc.ts)에서 시작한다. 결과 숫자는 없다. */
+/** 폼 값. 시연 기본 조건에서 시작한다. 결과 숫자는 없다. */
 export function formFromConditions(conditions: DemandForecastConditionsInput): ForecastFormState {
   return {
     date: conditions.date,
@@ -292,7 +292,7 @@ function Check({
 
 export function DemandForecastPanel() {
   const [form, setForm] = useState<ForecastFormState>(() =>
-    formFromConditions(DEMO_DEFAULT_CONDITIONS),
+    formFromConditions(createDefaultForecastConditions()),
   )
   const [errors, setErrors] = useState<ForecastFieldErrors>({})
   const [editing, setEditing] = useState(false)
@@ -339,7 +339,7 @@ export function DemandForecastPanel() {
   }
 
   function resetToDefaults() {
-    setForm(formFromConditions(DEMO_DEFAULT_CONDITIONS))
+    setForm(formFromConditions(createDefaultForecastConditions()))
     setErrors({})
   }
 
@@ -499,7 +499,7 @@ export function DemandForecastPanel() {
 
           <fieldset className="forecast-fieldset">
             <legend>날씨 예보</legend>
-            <p className="field-hint">예측 시점(전날)에 확보 가능한 예보값을 입력</p>
+            <p className="field-hint">자동 연동 전까지 직접 입력하는 시연용 예보값</p>
             <Field label="예보 기온(℃)" htmlFor="forecast-temperature" error={errors.temperature}>
               <input
                 id="forecast-temperature"
@@ -569,7 +569,7 @@ export function DemandForecastPanel() {
           </fieldset>
 
           <div className="forecast-form-actions">
-            <p className="forecast-hint">날씨와 학사 조건은 자동 연동 전까지 직접 입력합니다.</p>
+            <p className="forecast-hint">학기 주차·날씨는 추정 입력값이며 학사일정·휴무일은 자동 반영하지 않습니다.</p>
             <button type="button" className="button" onClick={resetToDefaults}>
               기본 조건으로
             </button>
