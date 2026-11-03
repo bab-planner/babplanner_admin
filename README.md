@@ -55,8 +55,22 @@ npm run dev      # http://localhost:5173
 
 | 이름 | 뜻 |
 |---|---|
-| `VITE_API_BASE_URL` | 배포에서 API 서버 주소. 비우면 같은 출처의 상대 경로 |
+| `VITE_API_BASE_URL` | API Origin (예: `https://api.example.com`). **Production 필수**, 개발에서는 비우면 Vite 프록시 |
 | `VITE_DEV_API_TARGET` | 개발 서버가 `/api` 를 넘길 곳 (기본 `http://127.0.0.1:8080`) |
+
+## Vercel 배포
+
+1. Vercel에서 이 저장소를 Import 한다. Root Directory 는 저장소 루트, Framework 는 Vite
+   (`vercel.json` 이 빌드 명령 `npm run build`, 출력 `dist`, SPA fallback 을 지정한다).
+2. Project Settings → Environment Variables 에 등록한다.
+   - 이름: `VITE_API_BASE_URL`, 환경: **Production**(필요하면 Preview 도)
+   - 값: API Origin 만. 예 `https://api.example.com` — `/api/v1` 은 붙이지 않는다.
+   - 비밀 값(API 키, JWT 서명 키, DB 비밀번호)을 `VITE_*` 로 넣지 않는다.
+3. 환경변수는 **빌드 시점**에 번들에 박힌다. HTTPS 백엔드 주소가 정해지면 등록 후 반드시 재배포한다.
+4. 백엔드는 Vercel 배포 Origin(예 `https://<project>.vercel.app`)을 CORS 에서 허용해야 한다.
+
+Production 에서 `VITE_API_BASE_URL` 이 없거나 HTTP 이면 요청을 보내지 않고 구성 오류를 안내한다.
+Vercel 은 API 를 프록시하지 않으며 브라우저가 API Origin 을 직접 호출한다.
 
 ## 보안 메모
 

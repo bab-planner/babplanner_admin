@@ -5,6 +5,7 @@ import {
   setAccessToken,
   setRefreshToken,
 } from '../auth/session'
+import { ApiConfigError, currentBaseUrl } from './baseUrl'
 
 /**
  * 서버가 쓰는 응답 봉투. 성공이든 실패든 모양이 같다.
@@ -60,18 +61,8 @@ function notifySessionExpired(): void {
   sessionListeners.forEach((listener) => listener())
 }
 
-/**
- * API 주소.
- *
- * 비어 있으면 상대 경로를 쓴다. 개발 서버가 /api 를 백엔드로 중계하므로
- * 브라우저 입장에서는 같은 출처다. localhost:8080 을 코드에 박지 않는다.
- */
-function baseUrl(): string {
-  return (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-}
-
 function urlOf(path: string): string {
-  return `${baseUrl()}${path}`
+  return `${currentBaseUrl()}${path}`
 }
 
 async function readEnvelope<T>(response: Response): Promise<ApiEnvelope<T> | null> {
@@ -83,6 +74,33 @@ async function readEnvelope<T>(response: Response): Promise<ApiEnvelope<T> | nul
     // 서버가 봉투가 아닌 것을 돌려줬다. 본문을 그대로 화면에 흘리지 않는다.
     return null
   }
+}
+
+/**
+ * 성공 응답 본문 검사. 비어 있으면 null, JSON 봉투가 아니면 오류.
+ * SPA fallback 이나 프록시의 HTML 페이지를 정상 응답으로 취급하지 않는다.
+ */
+async function readSuccessEnvelope<T>(response: Response): Promise<ApiEnvelope<T> | null> {
+  const text = await response.text()
+  if (!text) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw invalidResponse(response.status)
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw invalidResponse(response.status)
+  }
+  return parsed as ApiEnvelope<T>
+}
+
+function invalidResponse(status: number): ApiError {
+  return new ApiError(
+    status,
+    'INVALID_RESPONSE',
+    '서버 응답 형식이 올바르지 않습니다. API 주소(VITE_API_BASE_URL) 설정을 확인해 주세요.',
+  )
 }
 
 /** 상태 코드별 기본 안내. 서버가 준 문구가 있으면 그쪽을 쓴다. */
@@ -138,12 +156,31 @@ function headersFor(options: RequestOptions): HeadersInit {
 }
 
 async function send(path: string, options: RequestOptions): Promise<Response> {
-  return fetch(urlOf(path), {
-    method: options.method ?? 'GET',
-    headers: headersFor(options),
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    signal: options.signal,
-  })
+  let url: string
+  try {
+    url = urlOf(path)
+  } catch (error) {
+    // 배포 구성 오류. 화면이 ApiError 로 같은 방식으로 안내할 수 있게 바꾼다.
+    if (error instanceof ApiConfigError) throw new ApiError(0, 'API_NOT_CONFIGURED', error.message)
+    throw error
+  }
+  try {
+    return await fetch(url, {
+      method: options.method ?? 'GET',
+      headers: headersFor(options),
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: options.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    // HTTP 응답 자체를 못 받았다. 서버 404 와는 다른 상황이다.
+    // (서버 다운, DNS, 인증서, CORS 거부, 혼합 콘텐츠 차단)
+    throw new ApiError(
+      0,
+      'NETWORK_ERROR',
+      '서버에 연결할 수 없습니다. 네트워크 상태, API 서버 주소(HTTPS), 서버의 CORS 허용 설정을 확인해 주세요.',
+    )
+  }
 }
 
 /**
@@ -236,7 +273,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return undefined as T
   }
 
-  const envelope = await readEnvelope<T>(response)
+  const envelope = await readSuccessEnvelope<T>(response)
   return (envelope?.data ?? null) as T
 }
 

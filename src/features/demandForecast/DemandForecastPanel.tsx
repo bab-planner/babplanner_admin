@@ -163,7 +163,7 @@ export function validateForecastForm(form: ForecastFormState): {
  */
 function forecastErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 503) return FORECAST_UNAVAILABLE_MESSAGE
+    if (error.status === 503 || error.code === 'NETWORK_ERROR') return FORECAST_UNAVAILABLE_MESSAGE
     if (error.status === 400) return '입력한 급식 조건을 다시 확인해 주세요.'
     return error.message
   }

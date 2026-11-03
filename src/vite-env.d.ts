@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** 배포에서 API 서버 주소. 비어 있으면 같은 출처의 상대 경로를 쓴다. */
+  /** API Origin(예: https://api.example.com). production 에서는 필수, 개발에서는 비우면 프록시. */
   readonly VITE_API_BASE_URL?: string
 }
 
